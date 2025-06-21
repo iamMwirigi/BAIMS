@@ -1,0 +1,77 @@
+# --- Python ---
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# --- Virtual Environment ---
+# It's crucial to ignore the virtual environment directory.
+env/
+venv/
+.venv/
+
+# --- Django ---
+# Local development database
+db.sqlite3
+db.sqlite3-journal
+
+# User-uploaded media files
+/media/
+
+# Collected static files (if you run collectstatic)
+/static/
+
+# Log files
+*.log
+
+# --- Secrets & Configuration (DO NOT COMMIT) ---
+# Environment variables file
+.env
+.env.*
+
+# Local settings file (a common pattern to override production settings)
+local_settings.py
+
+# --- IDE / Editor ---
+# VSCode
+.vscode/
+# PyCharm
+.idea/
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# --- OS-specific ---
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
