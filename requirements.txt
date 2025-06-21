@@ -13,6 +13,7 @@ gunicorn==22.0.0
 
 # --- Database Connector ---
 # For connecting to a PostgreSQL database
+dj-database-url==2.1.0
 psycopg2-binary==2.9.9
 
 # --- Image Handling ---

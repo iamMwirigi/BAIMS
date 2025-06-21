@@ -1,5 +1,7 @@
 from pathlib import Path
+import os
 from decouple import config
+import dj_database_url # Added for database configuration
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -9,7 +11,14 @@ SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+# Allowed hosts for your application
+ALLOWED_HOSTS = ['localhost', '127.0.0.1'] # Always allow for local development
+
+# Add Render's hostname if not in debug mode
+if not DEBUG:
+    render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+    if render_external_hostname:
+        ALLOWED_HOSTS.append(render_external_hostname)
 
 # Application definition
 INSTALLED_APPS = [
@@ -25,7 +34,7 @@ INSTALLED_APPS = [
     'corsheaders',
     
     # Local apps
-    'api',
+    'apis', # Corrected app name from 'api' to 'apis'
 ]
 
 MIDDLEWARE = [
@@ -39,7 +48,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'django_api_project.urls'
+ROOT_URLCONF = 'baims.urls' # Corrected project name
 
 TEMPLATES = [
     {
@@ -57,15 +66,25 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'django_api_project.wsgi.application'
+WSGI_APPLICATION = 'baims.wsgi.application' # Corrected project name
 
 # Database
 DATABASES = {
-    'default': {
+     'default': {
+        # Default to SQLite for local development if DATABASE_URL is not set
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Override database settings with DATABASE_URL from Render (or local .env)
+# This allows using PostgreSQL in production and SQLite locally without changing code.
+if config('DATABASE_URL', default=None):
+    DATABASES['default'] = dj_database_url.config(
+        default=config('DATABASE_URL'),
+        conn_max_age=600 # Optional: connection age for persistent connections
+    )
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -90,22 +109,28 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Directory where collectstatic will gather files
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Django REST Framework
 REST_FRAMEWORK = {
+    # Default authentication classes
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
+    # Default permission classes
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # Pagination settings
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    # Default renderer classes
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
@@ -113,9 +138,15 @@ REST_FRAMEWORK = {
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
 ]
+
+# Load production CORS origins from environment variable
+prod_cors_origins = config('CORS_ALLOWED_ORIGINS', default='')
+if prod_cors_origins:
+    CORS_ALLOWED_ORIGINS.extend(prod_cors_origins.split(','))
+
+# Add local development origins if DEBUG is True
+if DEBUG:
+    CORS_ALLOWED_ORIGINS.extend(["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8080"])
 
 CORS_ALLOW_CREDENTIALS = True
