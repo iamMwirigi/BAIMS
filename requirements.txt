@@ -16,7 +16,7 @@ psycopg2-binary==2.9.9
 
 # --- Image Handling ---
 # Required for Django's ImageField
-pillow==10.3.0
+pillow==10.4.0
 
 # --- Asynchronous Tasks ---
 # For running background jobs
