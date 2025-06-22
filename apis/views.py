@@ -654,8 +654,12 @@ class ProjectViewSet(BaseViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_authenticated and hasattr(user, 'agency') and user.agency:
+        
+        # Check if the user is authenticated and has an associated agency
+        if user.is_authenticated and user.agency:
             return Project.objects.filter(company=user.agency.id)
+            
+        # If the user has no agency or is not authenticated, return an empty list
         return Project.objects.none()
     
     def get_serializer_class(self):
