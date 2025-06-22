@@ -12,9 +12,9 @@ django-cors-headers==4.3.1
 gunicorn==22.0.0
 
 # --- Database Connector ---
-# For connecting to a PostgreSQL database
-dj-database-url==2.1.0
-psycopg2-binary==2.9.9
+# For connecting to a MySQL database
+mysqlclient==2.2.4
+
 
 # --- Image Handling ---
 # Required for Django's ImageField
