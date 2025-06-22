@@ -64,21 +64,15 @@ WSGI_APPLICATION = 'baims.wsgi.application' # Corrected project name
 
 # Database
 DATABASES = {
-     'default': {
-        # Default to SQLite for local development if DATABASE_URL is not set
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.environ.get('DB_NAME', 'baims'),
+        'USER': os.environ.get('DB_USER', 'dev_ops1'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'a26N8Iv22TC4kJdb'),
+        'HOST': os.environ.get('DB_HOST', 'db.igurudb.com'),
+        'PORT': os.environ.get('DB_PORT', '3306'),
     }
 }
-
-# Override database settings with DATABASE_URL from Render (or local .env)
-# This allows using PostgreSQL in production and SQLite locally without changing code.
-if config('DATABASE_URL', default=None):
-    DATABASES['default'] = dj_database_url.config(
-        default=config('DATABASE_URL'),
-        conn_max_age=600 # Optional: connection age for persistent connections
-    )
-
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
