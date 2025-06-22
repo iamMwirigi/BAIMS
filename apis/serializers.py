@@ -10,10 +10,14 @@ from .models import (
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model"""
-    
+    agency = AgencySerializer(read_only=True)
+    agency_id = serializers.PrimaryKeyRelatedField(
+        queryset=Agency.objects.all(), source='agency', write_only=True, allow_null=True
+    )
+
     class Meta:
         model = User
-        fields = ['id', 'name', 'username', 'password', 'region', 'active_status', 'place_holder']
+        fields = ['id', 'name', 'username', 'password', 'region', 'active_status', 'place_holder', 'agency', 'agency_id']
         extra_kwargs = {
             'password': {'write_only': True},  # Don't include password in responses
             'active_status': {'default': 1},
@@ -32,15 +36,17 @@ class UserSerializer(serializers.ModelSerializer):
         instance.region = validated_data.get('region', instance.region)
         instance.active_status = validated_data.get('active_status', instance.active_status)
         instance.place_holder = validated_data.get('place_holder', instance.place_holder)
+        instance.agency = validated_data.get('agency', instance.agency)
         instance.save()
         return instance
 
 class UserListSerializer(serializers.ModelSerializer):
     """Serializer for listing users (without password)"""
-    
+    agency = AgencyListSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'name', 'username', 'region', 'active_status', 'place_holder'] 
+        fields = ['id', 'name', 'username', 'region', 'active_status', 'place_holder', 'agency']
 
 
 # Agency Serializers

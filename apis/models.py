@@ -10,6 +10,7 @@ class User(models.Model):
     region = models.CharField(max_length=64)
     active_status = models.IntegerField(default=1)
     place_holder = models.IntegerField(default=0)
+    agency = models.ForeignKey('Agency', on_delete=models.CASCADE, related_name='users', null=True, blank=True)
     
     class Meta:
         db_table = 'user'

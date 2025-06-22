@@ -44,6 +44,8 @@ from .serializers import (
     InputOptionsSerializer, InputOptionsListSerializer
 )
 from django.db import models
+from django.contrib.auth.hashers import check_password
+from rest_framework.authtoken.models import Token
 
 # Custom exception handler for better error messages
 def custom_exception_handler(exc, context):
@@ -114,7 +116,6 @@ def custom_exception_handler(exc, context):
 # Generic BaseViewSet to be inherited by other viewsets
 class BaseViewSet(viewsets.ModelViewSet):
     """Base ViewSet with standardized response format"""
-    permission_classes = [AllowAny]
     
     def get_object(self):
         """Override to provide better error messages"""
@@ -291,7 +292,6 @@ class UserViewSet(viewsets.ModelViewSet):
     
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [AllowAny]  # We'll change this later for security
     
     def get_serializer_class(self):
         """Use different serializers for different actions"""
@@ -650,7 +650,14 @@ class AgencyViewSet(BaseViewSet):
 class ProjectViewSet(BaseViewSet):
     """ViewSet for Project model"""
     queryset = Project.objects.all()
-    
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and hasattr(user, 'agency') and user.agency:
+            return Project.objects.filter(company=user.agency.id)
+        return Project.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return ProjectListSerializer
@@ -910,13 +917,11 @@ class InputOptionsViewSet(BaseViewSet):
     queryset = InputOptions.objects.all()
     
     def get_serializer_class(self):
-        if self.action == 'list':
-            return InputOptionsListSerializer
-        return InputOptionsSerializer
+        return InputOptionsListSerializer if self.action == 'list' else InputOptionsSerializer
 
 class LoginView(APIView):
     """
-    Custom login view to authenticate a BA and return their projects and forms.
+    Custom login view to authenticate a User and return a token.
     """
     permission_classes = [AllowAny]
 
@@ -926,91 +931,42 @@ class LoginView(APIView):
 
         if not username or not password:
             return Response({
-                'response': 'fail',
-                'message': 'Username and password are required.'
+                'success': False,
+                'message': 'Username and password are required'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            ba = Ba.objects.get(phone=username, pass_code=password)
-        except Ba.DoesNotExist:
-            return Response({'response': 'fail', 'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Invalid credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Build the successful response
-        output = {
-            'response': 'success',
-            'name': ba.name,
-            'ba_id': ba.id,
-        }
+        # For a production system, you should use a secure password hashing mechanism
+        # like Django's default password hashing.
+        # Assuming plain text passwords for now as in the original User model.
+        if user.password != password:
+            return Response({
+                'success': False,
+                'message': 'Invalid credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
-        try:
-            agency = Agency.objects.get(id=ba.company)
-            output['company'] = agency.name
-        except Agency.DoesNotExist:
-            output['company'] = None
+        if not user.is_active:
+            return Response({
+                'success': False,
+                'message': 'User account is inactive'
+            }, status=status.HTTP_403_FORBIDDEN)
 
-        # Fetch projects
-        projects_data = []
-        
-        ba_project_assocs = BaProject.objects.filter(ba_id=ba.id)
-        project_ids = [bpa.project_id for bpa in ba_project_assocs]
-        
-        project_heads = ProjectHead.objects.filter(id__in=project_ids).order_by('-id')
+        token, created = Token.objects.get_or_create(user_id=user.pk)
 
-        ba_project_dates = {bpa.project_id: {'start_date': bpa.start_date, 'end_date': bpa.end_date} for bpa in ba_project_assocs}
+        user_data = UserSerializer(user).data
 
-        for project_head in project_heads:
-            project_details = {
-                'project_title': project_head.aka_name,
-                'code_name': project_head.aka_name,
-                'project_id': project_head.id,
-                'start_date': ba_project_dates.get(project_head.id, {}).get('start_date'),
-                'end_date': ba_project_dates.get(project_head.id, {}).get('end_date'),
+        return Response({
+            'success': True,
+            'message': 'Login successful',
+            'data': {
+                'token': token.key,
+                'user': user_data
             }
-
-            # Fetch forms
-            forms_data = []
-            forms = Project.objects.filter(client=project_head.aka_name).order_by('-rank')
-            for form in forms:
-                form_details = {
-                    'form_title': form.name,
-                    'form_id': form.id,
-                    'form_rank': form.rank,
-                    'location_status': form.location_status,
-                    'image_required': form.image_required,
-                }
-
-                # Fetch form fields (from project_assoc)
-                fields_data = []
-                fields = ProjectAssoc.objects.filter(project=form.id).order_by('rank')
-                for field in fields:
-                    field_details = {
-                        'input_title': field.report_display_name,
-                        'field_id': field.column_name,
-                        'input_rank': field.rank,
-                        'field_type': 'dropdown' if field.field_type == 'select' else field.field_type,
-                        'multiple_choice': 'true' if field.multiple == 1 else 'false',
-                        'options_available': str(field.options_available),
-                    }
-
-                    # Fetch field options
-                    options_data = []
-                    if field.options_available == 1:
-                        options = InputOptions.objects.filter(field_id=field.id).order_by('rank')
-                        for option in options:
-                            options_data.append({
-                                'option_text': option.title,
-                                'option_rank': option.rank,
-                            })
-                    
-                    field_details['field_input_options'] = options_data
-                    fields_data.append(field_details)
-
-                form_details['form_fields'] = fields_data
-                forms_data.append(form_details)
-            
-            project_details['forms'] = forms_data
-            projects_data.append(project_details)
-        
-        output['projects'] = projects_data
-
-        return Response(output, status=status.HTTP_200_OK)
+        })
