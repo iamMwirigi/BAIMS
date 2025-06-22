@@ -248,10 +248,8 @@ class Ba(models.Model):
     """BA table"""
     name = models.CharField(max_length=128)
     phone = models.CharField(max_length=64)
-    location = models.TextField()
     company = models.IntegerField()
-    pass_code = models.CharField(max_length=64)
-    branch = models.CharField(max_length=128)
+    pass_code = models.CharField(max_length=1000)
     
     class Meta:
         db_table = 'ba'

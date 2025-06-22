@@ -12,7 +12,7 @@ services:
     buildCommand: |
       pip install -r requirements.txt
       python manage.py collectstatic --no-input
-      python manage.py migrate
+      python manage.py migrate --fake
     startCommand: "gunicorn baims.wsgi" # Corrected start command
     envVars:
       - key: DATABASE_URL
