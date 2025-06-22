@@ -1,3 +1,4 @@
+import sys
 from rest_framework import serializers
 from .models import (
     User, Agency, Project, ProjectHead, Branch, Outlet, UserOutlet,
@@ -420,6 +421,7 @@ class BaSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new BA record"""
+        print('Validated data for Ba:', validated_data, file=sys.stderr)
         return Ba.objects.create(**validated_data)
     
     def update(self, instance, validated_data):
