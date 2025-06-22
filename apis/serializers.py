@@ -416,7 +416,7 @@ class BaSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Ba
-        fields = ['id']
+        fields = ['id', 'name', 'phone', 'company', 'pass_code']
     
     def create(self, validated_data):
         """Create a new BA record"""
@@ -434,7 +434,7 @@ class BaListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Ba
-        fields = ['id']
+        fields = ['id', 'name', 'phone', 'company']
 
 
 # Backend Serializers
@@ -497,7 +497,11 @@ class ProjectAssocSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ProjectAssoc
-        fields = ['id']
+        fields = [
+            'id', 'project', 'report_display_name', 'column_name', 'rank',
+            'field_type', 'multiple', 'options_available', 'options_id',
+            'formula_id'
+        ]
     
     def create(self, validated_data):
         """Create a new project association record"""
@@ -515,7 +519,11 @@ class ProjectAssocListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ProjectAssoc
-        fields = ['id']
+        fields = [
+            'id', 'project', 'report_display_name', 'column_name', 'rank',
+            'field_type', 'multiple', 'options_available', 'options_id',
+            'formula_id'
+        ]
 
 
 # Containers Serializers

@@ -656,6 +656,45 @@ class ProjectViewSet(BaseViewSet):
             return ProjectListSerializer
         return ProjectSerializer
 
+    @action(detail=True, methods=['get'], url_path='view-form')
+    def view_form(self, request, pk=None):
+        """
+        Get a specific project (form) and all its associated fields.
+        This replicates the functionality of VIEW-FORM.php.
+        """
+        try:
+            project = self.get_object()
+            
+            # Get all associated form fields
+            form_fields = ProjectAssoc.objects.filter(project=project.id).order_by('rank')
+            
+            project_serializer = self.get_serializer(project)
+            fields_serializer = ProjectAssocSerializer(form_fields, many=True)
+            
+            response_data = {
+                'success': True,
+                'message': 'Form structure retrieved successfully',
+                'data': {
+                    'form_details': project_serializer.data,
+                    'form_fields': fields_serializer.data
+                }
+            }
+            
+            return Response(response_data)
+            
+        except ObjectDoesNotExist:
+            return Response({
+                'success': False,
+                'message': f"Project with ID '{pk}' not found.",
+                'data': {}
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while retrieving the form structure.',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class ProjectHeadViewSet(BaseViewSet):
     """ViewSet for ProjectHead model"""
     queryset = ProjectHead.objects.all()
