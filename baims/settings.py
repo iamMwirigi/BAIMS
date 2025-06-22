@@ -121,6 +121,14 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
+    # Parser classes to handle different content types
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
+    # Custom exception handler for better error messages
+    'EXCEPTION_HANDLER': 'apis.views.custom_exception_handler',
 }
 
 # CORS settings

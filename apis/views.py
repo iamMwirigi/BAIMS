@@ -4,9 +4,276 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
-from .models import User
-from .serializers import UserSerializer, UserListSerializer
+from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.exceptions import NotFound, ValidationError, PermissionDenied
+from rest_framework.views import APIView
+from .models import (
+    User, Agency, Project, ProjectHead, Branch, Outlet, UserOutlet,
+    AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
+    RedbullOutlet, TotalKenya, AppData, Ba, Backend, BaProject, ProjectAssoc,
+    Containers, ContainerOptions, Coop, Coop2, FormSection, FormSubSection,
+    InputGroup, InputOptions
+)
+from .serializers import (
+    UserSerializer, UserListSerializer,
+    AgencySerializer, AgencyListSerializer,
+    ProjectSerializer, ProjectListSerializer,
+    ProjectHeadSerializer, ProjectHeadListSerializer,
+    BranchSerializer, BranchListSerializer,
+    OutletSerializer, OutletListSerializer,
+    UserOutletSerializer, UserOutletListSerializer,
+    AirtelCombinedSerializer, AirtelCombinedListSerializer,
+    CokeCombinedSerializer, CokeCombinedListSerializer,
+    BaimsCombinedSerializer, BaimsCombinedListSerializer,
+    KspcaCombinedSerializer, KspcaCombinedListSerializer,
+    SaffCombinedSerializer, SaffCombinedListSerializer,
+    RedbullOutletSerializer, RedbullOutletListSerializer,
+    TotalKenyaSerializer, TotalKenyaListSerializer,
+    AppDataSerializer, AppDataListSerializer,
+    BaSerializer, BaListSerializer,
+    BackendSerializer, BackendListSerializer,
+    BaProjectSerializer, BaProjectListSerializer,
+    ProjectAssocSerializer, ProjectAssocListSerializer,
+    ContainersSerializer, ContainersListSerializer,
+    ContainerOptionsSerializer, ContainerOptionsListSerializer,
+    CoopSerializer, CoopListSerializer,
+    Coop2Serializer, Coop2ListSerializer,
+    FormSectionSerializer, FormSectionListSerializer,
+    FormSubSectionSerializer, FormSubSectionListSerializer,
+    InputGroupSerializer, InputGroupListSerializer,
+    InputOptionsSerializer, InputOptionsListSerializer
+)
 from django.db import models
+
+# Custom exception handler for better error messages
+def custom_exception_handler(exc, context):
+    """Custom exception handler to provide better error messages"""
+    if isinstance(exc, NotFound):
+        return Response({
+            'success': False,
+            'message': 'The requested resource was not found',
+            'data': {
+                'errors': 'Resource not found',
+                'suggestion': 'Please check the URL and resource ID'
+            }
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    elif isinstance(exc, ValidationError):
+        return Response({
+            'success': False,
+            'message': 'Invalid data provided',
+            'data': {
+                'errors': exc.detail,
+                'suggestion': 'Please check the data format and required fields'
+            }
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif isinstance(exc, PermissionDenied):
+        return Response({
+            'success': False,
+            'message': 'You do not have permission to perform this action',
+            'data': {
+                'errors': 'Permission denied',
+                'suggestion': 'Please check your authentication and permissions'
+            }
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # Handle unsupported media type error
+    elif hasattr(exc, 'status_code') and exc.status_code == 415:
+        return Response({
+            'success': False,
+            'message': 'Unsupported media type in request',
+            'data': {
+                'errors': 'Content-Type header is incorrect',
+                'suggestion': 'Please set Content-Type header to "application/json"',
+                'example': {
+                    'headers': {
+                        'Content-Type': 'application/json'
+                    },
+                    'note': 'Make sure your request body is valid JSON format'
+                }
+            }
+        }, status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+    
+    # Call the default exception handler for other exceptions
+    from rest_framework.views import exception_handler
+    response = exception_handler(exc, context)
+    
+    if response is not None:
+        response.data = {
+            'success': False,
+            'message': 'An error occurred while processing your request',
+            'data': {
+                'errors': response.data,
+                'suggestion': 'Please try again or contact support if the issue persists'
+            }
+        }
+    
+    return response
+
+# Generic BaseViewSet to be inherited by other viewsets
+class BaseViewSet(viewsets.ModelViewSet):
+    """Base ViewSet with standardized response format"""
+    permission_classes = [AllowAny]
+    
+    def get_object(self):
+        """Override to provide better error messages"""
+        try:
+            return super().get_object()
+        except ObjectDoesNotExist:
+            model_name = self.queryset.model.__name__
+            item_id = self.kwargs.get('pk')
+            raise ObjectDoesNotExist(f"{model_name} with ID '{item_id}' does not exist.")
+    
+    def list(self, request, *args, **kwargs):
+        """List all items"""
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                'success': True,
+                'message': f'Successfully retrieved {queryset.count()} items',
+                'data': {
+                    'items': serializer.data,
+                    'count': queryset.count()
+                }
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while retrieving items',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def create(self, request, *args, **kwargs):
+        """Create a new item"""
+        try:
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                item = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'Item created successfully',
+                    'data': {'item': self.get_serializer(item).data}
+                }, status=status.HTTP_201_CREATED)
+            return Response({
+                'success': False,
+                'message': 'Invalid data provided',
+                'data': {'errors': serializer.errors}
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while creating the item',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve a specific item by ID"""
+        try:
+            item = self.get_object()
+            serializer = self.get_serializer(item)
+            return Response({
+                'success': True,
+                'message': 'Item retrieved successfully',
+                'data': {'item': serializer.data}
+            })
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {'errors': 'Item not found'}
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while retrieving the item',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def update(self, request, *args, **kwargs):
+        """Update an item (full update)"""
+        try:
+            item = self.get_object()
+            serializer = self.get_serializer(item, data=request.data)
+            if serializer.is_valid():
+                item = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'Item updated successfully',
+                    'data': {'item': self.get_serializer(item).data}
+                })
+            return Response({
+                'success': False,
+                'message': 'Invalid data provided',
+                'data': {'errors': serializer.errors}
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {'errors': 'Item not found'}
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while updating the item',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """Update an item (partial update)"""
+        try:
+            item = self.get_object()
+            serializer = self.get_serializer(item, data=request.data, partial=True)
+            if serializer.is_valid():
+                item = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'Item updated successfully',
+                    'data': {'item': self.get_serializer(item).data}
+                })
+            return Response({
+                'success': False,
+                'message': 'Invalid data provided',
+                'data': {'errors': serializer.errors}
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {'errors': 'Item not found'}
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while updating the item',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Delete an item"""
+        try:
+            item = self.get_object()
+            item.delete()
+            return Response({
+                'success': True,
+                'message': 'Item deleted successfully',
+                'data': {}
+            }, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {'errors': 'Item not found'}
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while deleting the item',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 # Create your views here.
 
@@ -32,164 +299,679 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserListSerializer
         return UserSerializer
     
+    def get_object(self):
+        """Override to provide better error messages"""
+        try:
+            return super().get_object()
+        except ObjectDoesNotExist:
+            user_id = self.kwargs.get('pk')
+            raise ObjectDoesNotExist(f"User with ID '{user_id}' does not exist. Please check the user ID and try again.")
+    
     def list(self, request, *args, **kwargs):
         """Get all users with optional filtering"""
-        queryset = self.get_queryset()
-        
-        # Filter by region if provided
-        region = request.query_params.get('region', None)
-        if region:
-            queryset = queryset.filter(region=region)
-        
-        # Filter by active status if provided
-        active_status = request.query_params.get('active_status', None)
-        if active_status is not None:
-            queryset = queryset.filter(active_status=int(active_status))
-        
-        # Search by name or username
-        search = request.query_params.get('search', None)
-        if search:
-            queryset = queryset.filter(
-                models.Q(name__icontains=search) | 
-                models.Q(username__icontains=search)
-            )
-        
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({
-            'success': True,
-            'message': 'Users retrieved successfully',
-            'data': {
-                'users': serializer.data,
-                'count': queryset.count()
-            }
-        })
+        try:
+            queryset = self.get_queryset()
+            
+            # Filter by region if provided
+            region = request.query_params.get('region', None)
+            if region:
+                queryset = queryset.filter(region=region)
+            
+            # Filter by active status if provided
+            active_status = request.query_params.get('active_status', None)
+            if active_status is not None:
+                try:
+                    active_status = int(active_status)
+                    queryset = queryset.filter(active_status=active_status)
+                except ValueError:
+                    return Response({
+                        'success': False,
+                        'message': 'Invalid active_status parameter. Must be 0 or 1.',
+                        'data': {
+                            'errors': {'active_status': 'Must be 0 or 1'}
+                        }
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Search by name or username
+            search = request.query_params.get('search', None)
+            if search:
+                queryset = queryset.filter(
+                    models.Q(name__icontains=search) | 
+                    models.Q(username__icontains=search)
+                )
+            
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                'success': True,
+                'message': f'Successfully retrieved {queryset.count()} users',
+                'data': {
+                    'users': serializer.data,
+                    'count': queryset.count()
+                }
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while retrieving users',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def create(self, request, *args, **kwargs):
         """Create a new user"""
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
+        try:
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                user = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'User created successfully',
+                    'data': {
+                        'user': UserListSerializer(user).data
+                    }
+                }, status=status.HTTP_201_CREATED)
             return Response({
-                'success': True,
-                'message': 'User created successfully',
+                'success': False,
+                'message': 'Invalid data provided. Please check the required fields.',
                 'data': {
-                    'user': UserListSerializer(user).data
+                    'errors': serializer.errors,
+                    'required_fields': ['name', 'username', 'password', 'region'],
+                    'optional_fields': ['active_status', 'place_holder']
                 }
-            }, status=status.HTTP_201_CREATED)
-        return Response({
-            'success': False,
-            'message': 'Invalid data provided',
-            'data': {
-                'errors': serializer.errors
-            }
-        }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while creating the user',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def retrieve(self, request, *args, **kwargs):
         """Get a specific user by ID"""
-        user = self.get_object()
-        serializer = UserListSerializer(user)
-        return Response({
-            'success': True,
-            'message': 'User retrieved successfully',
-            'data': {
-                'user': serializer.data
-            }
-        })
+        try:
+            user = self.get_object()
+            serializer = UserListSerializer(user)
+            return Response({
+                'success': True,
+                'message': 'User retrieved successfully',
+                'data': {
+                    'user': serializer.data
+                }
+            })
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {
+                    'errors': 'User not found',
+                    'suggestion': 'Please check the user ID and try again'
+                }
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while retrieving the user',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def update(self, request, *args, **kwargs):
         """Update a user (full update)"""
-        user = self.get_object()
-        serializer = self.get_serializer(user, data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
+        try:
+            user = self.get_object()
+            serializer = self.get_serializer(user, data=request.data)
+            if serializer.is_valid():
+                user = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'User updated successfully',
+                    'data': {
+                        'user': UserListSerializer(user).data
+                    }
+                })
             return Response({
-                'success': True,
-                'message': 'User updated successfully',
+                'success': False,
+                'message': 'Invalid data provided. Please check the required fields.',
                 'data': {
-                    'user': UserListSerializer(user).data
+                    'errors': serializer.errors,
+                    'required_fields': ['name', 'username', 'password', 'region'],
+                    'optional_fields': ['active_status', 'place_holder']
                 }
-            })
-        return Response({
-            'success': False,
-            'message': 'Invalid data provided',
-            'data': {
-                'errors': serializer.errors
-            }
-        }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {
+                    'errors': 'User not found',
+                    'suggestion': 'Please check the user ID and try again'
+                }
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while updating the user',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def partial_update(self, request, *args, **kwargs):
         """Update a user (partial update)"""
-        user = self.get_object()
-        serializer = self.get_serializer(user, data=request.data, partial=True)
-        if serializer.is_valid():
-            user = serializer.save()
+        try:
+            user = self.get_object()
+            serializer = self.get_serializer(user, data=request.data, partial=True)
+            if serializer.is_valid():
+                user = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'User updated successfully',
+                    'data': {
+                        'user': UserListSerializer(user).data
+                    }
+                })
             return Response({
-                'success': True,
-                'message': 'User updated successfully',
+                'success': False,
+                'message': 'Invalid data provided. Please check the field values.',
                 'data': {
-                    'user': UserListSerializer(user).data
+                    'errors': serializer.errors,
+                    'available_fields': ['name', 'username', 'password', 'region', 'active_status', 'place_holder']
                 }
-            })
-        return Response({
-            'success': False,
-            'message': 'Invalid data provided',
-            'data': {
-                'errors': serializer.errors
-            }
-        }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {
+                    'errors': 'User not found',
+                    'suggestion': 'Please check the user ID and try again'
+                }
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while updating the user',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def destroy(self, request, *args, **kwargs):
         """Delete a user"""
-        user = self.get_object()
-        user.delete()
-        return Response({
-            'success': True,
-            'message': 'User deleted successfully',
-            'data': {}
-        }, status=status.HTTP_200_OK)
+        try:
+            user = self.get_object()
+            user_name = user.name
+            user.delete()
+            return Response({
+                'success': True,
+                'message': f'User "{user_name}" deleted successfully',
+                'data': {}
+            }, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {
+                    'errors': 'User not found',
+                    'suggestion': 'Please check the user ID and try again'
+                }
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while deleting the user',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=False, methods=['get'])
     def regions(self, request):
         """Get all unique regions"""
-        regions = User.objects.values_list('region', flat=True).distinct()
-        return Response({
-            'success': True,
-            'message': 'Regions retrieved successfully',
-            'data': {
-                'regions': list(regions)
-            }
-        })
+        try:
+            regions = User.objects.values_list('region', flat=True).distinct()
+            return Response({
+                'success': True,
+                'message': f'Successfully retrieved {len(regions)} unique regions',
+                'data': {
+                    'regions': list(regions)
+                }
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while retrieving regions',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=True, methods=['post'])
     def toggle_status(self, request, pk=None):
         """Toggle user active status"""
-        user = self.get_object()
-        user.active_status = 0 if user.active_status == 1 else 1
-        user.save()
-        status_text = "active" if user.active_status == 1 else "inactive"
-        return Response({
-            'success': True,
-            'message': f'User status changed to {status_text}',
-            'data': {
-                'user': UserListSerializer(user).data
-            }
-        })
+        try:
+            user = self.get_object()
+            old_status = user.active_status
+            user.active_status = 0 if user.active_status == 1 else 1
+            user.save()
+            status_text = "active" if user.active_status == 1 else "inactive"
+            return Response({
+                'success': True,
+                'message': f'User status changed from {"active" if old_status == 1 else "inactive"} to {status_text}',
+                'data': {
+                    'user': UserListSerializer(user).data
+                }
+            })
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {
+                    'errors': 'User not found',
+                    'suggestion': 'Please check the user ID and try again'
+                }
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while toggling user status',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Get user statistics"""
-        total_users = User.objects.count()
-        active_users = User.objects.filter(active_status=1).count()
-        inactive_users = User.objects.filter(active_status=0).count()
-        
-        return Response({
-            'success': True,
-            'message': 'User statistics retrieved successfully',
-            'data': {
-                'statistics': {
-                    'total_users': total_users,
-                    'active_users': active_users,
-                    'inactive_users': inactive_users
+        try:
+            total_users = User.objects.count()
+            active_users = User.objects.filter(active_status=1).count()
+            inactive_users = User.objects.filter(active_status=0).count()
+            
+            return Response({
+                'success': True,
+                'message': 'User statistics retrieved successfully',
+                'data': {
+                    'statistics': {
+                        'total_users': total_users,
+                        'active_users': active_users,
+                        'inactive_users': inactive_users
+                    }
                 }
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while retrieving user statistics',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['get'])
+    def ids(self, request):
+        """Get list of user IDs and names for reference"""
+        try:
+            users = User.objects.values('id', 'name', 'username', 'active_status').order_by('id')
+            return Response({
+                'success': True,
+                'message': f'Successfully retrieved {len(users)} user IDs',
+                'data': {
+                    'users': list(users),
+                    'count': len(users),
+                    'note': 'Use these IDs for GET, PUT, PATCH, or DELETE operations on specific users'
+                }
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while retrieving user IDs',
+                'data': {
+                    'errors': str(e)
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# New ViewSets for all other models
+
+class AgencyViewSet(BaseViewSet):
+    """ViewSet for Agency model"""
+    queryset = Agency.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AgencyListSerializer
+        return AgencySerializer
+
+class ProjectViewSet(BaseViewSet):
+    """ViewSet for Project model"""
+    queryset = Project.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProjectListSerializer
+        return ProjectSerializer
+
+class ProjectHeadViewSet(BaseViewSet):
+    """ViewSet for ProjectHead model"""
+    queryset = ProjectHead.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProjectHeadListSerializer
+        return ProjectHeadSerializer
+
+class BranchViewSet(BaseViewSet):
+    """ViewSet for Branch model"""
+    queryset = Branch.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return BranchListSerializer
+        return BranchSerializer
+
+class OutletViewSet(BaseViewSet):
+    """ViewSet for Outlet model"""
+    queryset = Outlet.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return OutletListSerializer
+        return OutletSerializer
+
+class UserOutletViewSet(BaseViewSet):
+    """ViewSet for UserOutlet model"""
+    queryset = UserOutlet.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return UserOutletListSerializer
+        return UserOutletSerializer
+
+
+# Data Collection ViewSets
+
+class AirtelCombinedViewSet(BaseViewSet):
+    """ViewSet for AirtelCombined model"""
+    queryset = AirtelCombined.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AirtelCombinedListSerializer
+        return AirtelCombinedSerializer
+
+class CokeCombinedViewSet(BaseViewSet):
+    """ViewSet for CokeCombined model"""
+    queryset = CokeCombined.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return CokeCombinedListSerializer
+        return CokeCombinedSerializer
+
+class BaimsCombinedViewSet(BaseViewSet):
+    """ViewSet for BaimsCombined model"""
+    queryset = BaimsCombined.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return BaimsCombinedListSerializer
+        return BaimsCombinedSerializer
+
+class KspcaCombinedViewSet(BaseViewSet):
+    """ViewSet for KspcaCombined model"""
+    queryset = KspcaCombined.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return KspcaCombinedListSerializer
+        return KspcaCombinedSerializer
+
+class SaffCombinedViewSet(BaseViewSet):
+    """ViewSet for SaffCombined model"""
+    queryset = SaffCombined.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return SaffCombinedListSerializer
+        return SaffCombinedSerializer
+
+class RedbullOutletViewSet(BaseViewSet):
+    """ViewSet for RedbullOutlet model"""
+    queryset = RedbullOutlet.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return RedbullOutletListSerializer
+        return RedbullOutletSerializer
+
+class TotalKenyaViewSet(BaseViewSet):
+    """ViewSet for TotalKenya model"""
+    queryset = TotalKenya.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return TotalKenyaListSerializer
+        return TotalKenyaSerializer
+
+class AppDataViewSet(BaseViewSet):
+    """ViewSet for AppData model"""
+    queryset = AppData.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AppDataListSerializer
+        return AppDataSerializer
+
+class BaViewSet(BaseViewSet):
+    """ViewSet for Ba model"""
+    queryset = Ba.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return BaListSerializer
+        return BaSerializer
+
+class BackendViewSet(BaseViewSet):
+    """ViewSet for Backend model"""
+    queryset = Backend.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return BackendListSerializer
+        return BackendSerializer
+
+class BaProjectViewSet(BaseViewSet):
+    """ViewSet for BaProject model"""
+    queryset = BaProject.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return BaProjectListSerializer
+        return BaProjectSerializer
+
+class ProjectAssocViewSet(BaseViewSet):
+    """ViewSet for ProjectAssoc model"""
+    queryset = ProjectAssoc.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProjectAssocListSerializer
+        return ProjectAssocSerializer
+
+class ContainersViewSet(BaseViewSet):
+    """ViewSet for Containers model"""
+    queryset = Containers.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ContainersListSerializer
+        return ContainersSerializer
+
+class ContainerOptionsViewSet(BaseViewSet):
+    """ViewSet for ContainerOptions model"""
+    queryset = ContainerOptions.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ContainerOptionsListSerializer
+        return ContainerOptionsSerializer
+
+class CoopViewSet(BaseViewSet):
+    """ViewSet for Coop model"""
+    queryset = Coop.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return CoopListSerializer
+        return CoopSerializer
+
+class Coop2ViewSet(BaseViewSet):
+    """ViewSet for Coop2 model"""
+    queryset = Coop2.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return Coop2ListSerializer
+        return Coop2Serializer
+
+class FormSectionViewSet(BaseViewSet):
+    """ViewSet for FormSection model"""
+    queryset = FormSection.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return FormSectionListSerializer
+        return FormSectionSerializer
+
+class FormSubSectionViewSet(BaseViewSet):
+    """ViewSet for FormSubSection model"""
+    queryset = FormSubSection.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return FormSubSectionListSerializer
+        return FormSubSectionSerializer
+
+class InputGroupViewSet(BaseViewSet):
+    """ViewSet for InputGroup model"""
+    queryset = InputGroup.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return InputGroupListSerializer
+        return InputGroupSerializer
+
+class InputOptionsViewSet(BaseViewSet):
+    """ViewSet for InputOptions model"""
+    queryset = InputOptions.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return InputOptionsListSerializer
+        return InputOptionsSerializer
+
+class LoginView(APIView):
+    """
+    Custom login view to authenticate a BA and return their projects and forms.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response({
+                'response': 'fail',
+                'message': 'Username and password are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            ba = Ba.objects.get(phone=username, pass_code=password)
+        except Ba.DoesNotExist:
+            return Response({'response': 'fail', 'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Build the successful response
+        output = {
+            'response': 'success',
+            'name': ba.name,
+            'ba_id': ba.id,
+        }
+
+        try:
+            agency = Agency.objects.get(id=ba.company)
+            output['company'] = agency.name
+        except Agency.DoesNotExist:
+            output['company'] = None
+
+        # Fetch projects
+        projects_data = []
+        
+        ba_project_assocs = BaProject.objects.filter(ba_id=ba.id)
+        project_ids = [bpa.project_id for bpa in ba_project_assocs]
+        
+        project_heads = ProjectHead.objects.filter(id__in=project_ids).order_by('-id')
+
+        ba_project_dates = {bpa.project_id: {'start_date': bpa.start_date, 'end_date': bpa.end_date} for bpa in ba_project_assocs}
+
+        for project_head in project_heads:
+            project_details = {
+                'project_title': project_head.aka_name,
+                'code_name': project_head.aka_name,
+                'project_id': project_head.id,
+                'start_date': ba_project_dates.get(project_head.id, {}).get('start_date'),
+                'end_date': ba_project_dates.get(project_head.id, {}).get('end_date'),
             }
-        })
+
+            # Fetch forms
+            forms_data = []
+            forms = Project.objects.filter(client=project_head.aka_name).order_by('-rank')
+            for form in forms:
+                form_details = {
+                    'form_title': form.name,
+                    'form_id': form.id,
+                    'form_rank': form.rank,
+                    'location_status': form.location_status,
+                    'image_required': form.image_required,
+                }
+
+                # Fetch form fields (from project_assoc)
+                fields_data = []
+                fields = ProjectAssoc.objects.filter(project=form.id).order_by('rank')
+                for field in fields:
+                    field_details = {
+                        'input_title': field.report_display_name,
+                        'field_id': field.column_name,
+                        'input_rank': field.rank,
+                        'field_type': 'dropdown' if field.field_type == 'select' else field.field_type,
+                        'multiple_choice': 'true' if field.multiple == 1 else 'false',
+                        'options_available': str(field.options_available),
+                    }
+
+                    # Fetch field options
+                    options_data = []
+                    if field.options_available == 1:
+                        options = InputOptions.objects.filter(field_id=field.id).order_by('rank')
+                        for option in options:
+                            options_data.append({
+                                'option_text': option.title,
+                                'option_rank': option.rank,
+                            })
+                    
+                    field_details['field_input_options'] = options_data
+                    fields_data.append(field_details)
+
+                form_details['form_fields'] = fields_data
+                forms_data.append(form_details)
+            
+            project_details['forms'] = forms_data
+            projects_data.append(project_details)
+        
+        output['projects'] = projects_data
+
+        return Response(output, status=status.HTTP_200_OK)
