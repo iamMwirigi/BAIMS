@@ -11,14 +11,8 @@ SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-# Allowed hosts for your application
-ALLOWED_HOSTS = ['localhost', '127.0.0.1'] # Always allow for local development
-
-# Add Render's hostname if not in debug mode
-if not DEBUG:
-    render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-    if render_external_hostname:
-        ALLOWED_HOSTS.append(render_external_hostname)
+# Add Render's hostname to allowed hosts
+ALLOWED_HOSTS = ["*"]
 
 # Application definition
 INSTALLED_APPS = [
