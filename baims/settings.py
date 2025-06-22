@@ -109,7 +109,7 @@ REST_FRAMEWORK = {
     # Default authentication classes
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
+        'apis.authentication.TokenAuthentication',
     ],
     # Default permission classes
     'DEFAULT_PERMISSION_CLASSES': [

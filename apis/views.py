@@ -12,7 +12,7 @@ from .models import (
     AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
     RedbullOutlet, TotalKenya, AppData, Ba, Backend, BaProject, ProjectAssoc,
     Containers, ContainerOptions, Coop, Coop2, FormSection, FormSubSection,
-    InputGroup, InputOptions
+    InputGroup, InputOptions, AuthToken
 )
 from .serializers import (
     UserSerializer, UserListSerializer,
@@ -657,7 +657,7 @@ class ProjectViewSet(BaseViewSet):
         if user.is_authenticated and hasattr(user, 'agency') and user.agency:
             return Project.objects.filter(company=user.agency.id)
         return Project.objects.none()
-
+    
     def get_serializer_class(self):
         if self.action == 'list':
             return ProjectListSerializer
@@ -943,9 +943,7 @@ class LoginView(APIView):
                 'message': 'Invalid credentials'
             }, status=status.HTTP_401_UNAUTHORIZED)
 
-        # For a production system, you should use a secure password hashing mechanism
-        # like Django's default password hashing.
-        # Assuming plain text passwords for now as in the original User model.
+        # NOTE: This assumes you are storing plain text passwords.
         if user.password != password:
             return Response({
                 'success': False,
@@ -958,7 +956,8 @@ class LoginView(APIView):
                 'message': 'User account is inactive'
             }, status=status.HTTP_403_FORBIDDEN)
 
-        token, created = Token.objects.get_or_create(user_id=user.pk)
+        # Get or create a token for the user
+        token, created = AuthToken.objects.get_or_create(user=user)
 
         user_data = UserSerializer(user).data
 

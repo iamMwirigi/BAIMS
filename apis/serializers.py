@@ -8,6 +8,34 @@ from .models import (
     InputGroup, InputOptions
 )
 
+# Agency Serializers
+class AgencySerializer(serializers.ModelSerializer):
+    """Serializer for Agency model"""
+    
+    class Meta:
+        model = Agency
+        fields = ['id', 'name', 'country', 'holding_table']
+    
+    def create(self, validated_data):
+        """Create a new agency"""
+        return Agency.objects.create(**validated_data)
+    
+    def update(self, instance, validated_data):
+        """Update an existing agency"""
+        instance.name = validated_data.get('name', instance.name)
+        instance.country = validated_data.get('country', instance.country)
+        instance.holding_table = validated_data.get('holding_table', instance.holding_table)
+        instance.save()
+        return instance
+
+class AgencyListSerializer(serializers.ModelSerializer):
+    """Serializer for listing agencies"""
+    
+    class Meta:
+        model = Agency
+        fields = ['id', 'name', 'country', 'holding_table']
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model"""
     agency = AgencySerializer(read_only=True)
@@ -47,34 +75,6 @@ class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'name', 'username', 'region', 'active_status', 'place_holder', 'agency']
-
-
-# Agency Serializers
-class AgencySerializer(serializers.ModelSerializer):
-    """Serializer for Agency model"""
-    
-    class Meta:
-        model = Agency
-        fields = ['id', 'name', 'country', 'holding_table']
-    
-    def create(self, validated_data):
-        """Create a new agency"""
-        return Agency.objects.create(**validated_data)
-    
-    def update(self, instance, validated_data):
-        """Update an existing agency"""
-        instance.name = validated_data.get('name', instance.name)
-        instance.country = validated_data.get('country', instance.country)
-        instance.holding_table = validated_data.get('holding_table', instance.holding_table)
-        instance.save()
-        return instance
-
-class AgencyListSerializer(serializers.ModelSerializer):
-    """Serializer for listing agencies"""
-    
-    class Meta:
-        model = Agency
-        fields = ['id', 'name', 'country', 'holding_table']
 
 
 # Project Serializers

@@ -1,4 +1,5 @@
 from django.db import models
+import secrets
 
 # Create your models here.
 
@@ -374,3 +375,23 @@ class InputOptions(models.Model):
         db_table = 'input_options'
         verbose_name = 'Input Option'
         verbose_name_plural = 'Input Options'
+
+
+class AuthToken(models.Model):
+    """Stores authentication tokens for custom users"""
+    key = models.CharField(max_length=40, primary_key=True)
+    user = models.ForeignKey(
+        User, related_name='auth_tokens', on_delete=models.CASCADE, verbose_name="User"
+    )
+    created = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super().save(*args, **kwargs)
+
+    def generate_key(self):
+        return secrets.token_hex(20)
+
+    def __str__(self):
+        return self.key
