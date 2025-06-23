@@ -747,7 +747,7 @@ class InputOptionsListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InputOptions
-        fields = ['id']
+        fields = ['id'] 
 
 
 # UAdmin Serializer

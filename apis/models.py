@@ -149,7 +149,7 @@ class UAdmin(models.Model):
     u_name = models.TextField()
     p_phrase = models.TextField()
     powers = models.CharField(max_length=64)
-
+    
     class Meta:
         db_table = 'u_admin'
         verbose_name = 'Admin User'

@@ -992,7 +992,7 @@ class AdminLoginView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            admin = UAdmin.objects.get(username=username)
+            admin = UAdmin.objects.get(u_name=username)
         except UAdmin.DoesNotExist:
             return Response({
                 'success': False,
@@ -1000,17 +1000,18 @@ class AdminLoginView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         # NOTE: This assumes you are storing plain text passwords.
-        if admin.password != password:
+        if admin.p_phrase != password:
             return Response({
                 'success': False,
                 'message': 'Invalid credentials'
             }, status=status.HTTP_401_UNAUTHORIZED)
 
-        if not admin.is_active:
-            return Response({
-                'success': False,
-                'message': 'Admin account is inactive'
-            }, status=status.HTTP_403_FORBIDDEN)
+        # If you want to check for active status, add a property to UAdmin and check here
+        # if not admin.is_active:
+        #     return Response({
+        #         'success': False,
+        #         'message': 'Admin account is inactive'
+        #     }, status=status.HTTP_403_FORBIDDEN)
 
         # Get or create a token for the admin
         token, created = AdminAuthToken.objects.get_or_create(admin=admin)
