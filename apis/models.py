@@ -145,7 +145,7 @@ class UserOutlet(models.Model):
 
 class UAdmin(models.Model):
     """Admin User model for authentication, matching the u_admin table schema"""
-    name = models.TextField()
+    name = models.TextField(null=True, blank=True)
     u_name = models.TextField()
     p_phrase = models.TextField()
     powers = models.CharField(max_length=64)
