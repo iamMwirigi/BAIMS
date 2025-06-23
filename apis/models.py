@@ -158,6 +158,10 @@ class UAdmin(models.Model):
     def __str__(self):
         return self.u_name
 
+    @property
+    def is_authenticated(self):
+        return True
+
 
 class AdminAuthToken(models.Model):
     """Stores authentication tokens for admin users"""
