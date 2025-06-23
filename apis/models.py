@@ -144,11 +144,11 @@ class UserOutlet(models.Model):
 
 
 class UAdmin(models.Model):
-    """Admin User model for authentication"""
-    username = models.CharField(max_length=64, unique=True)
-    password = models.CharField(max_length=128)
-    email = models.EmailField(max_length=128, null=True, blank=True)
-    is_active = models.BooleanField(default=True)
+    """Admin User model for authentication, matching the u_admin table schema"""
+    name = models.TextField()
+    u_name = models.TextField()
+    p_phrase = models.TextField()
+    powers = models.CharField(max_length=64)
 
     class Meta:
         db_table = 'u_admin'
@@ -156,7 +156,7 @@ class UAdmin(models.Model):
         verbose_name_plural = 'Admin Users'
 
     def __str__(self):
-        return self.username
+        return self.u_name
 
 
 class AdminAuthToken(models.Model):

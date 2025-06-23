@@ -18,7 +18,7 @@ class TokenAuthentication(authentication.BaseAuthentication):
         except AuthToken.DoesNotExist:
             raise exceptions.AuthenticationFailed('Invalid token.')
 
-        return (token.user, token)
+        return (token.user, token) 
 
 class AdminTokenAuthentication(authentication.BaseAuthentication):
     def authenticate(self, request):

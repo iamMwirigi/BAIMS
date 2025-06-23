@@ -8,7 +8,7 @@ from .views import (
     BackendViewSet, BaProjectViewSet, ProjectAssocViewSet, ContainersViewSet,
     ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet, FormSectionViewSet,
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
-    AdminLoginView
+    AdminLoginView, UAdminViewSet
 )
 
 # Create a router and register our viewsets with it
@@ -40,7 +40,7 @@ router.register(r'data/form-section', FormSectionViewSet, basename='formsection'
 router.register(r'data/form-sub-section', FormSubSectionViewSet, basename='formsubsection')
 router.register(r'data/input-group', InputGroupViewSet, basename='inputgroup')
 router.register(r'data/input-options', InputOptionsViewSet, basename='inputoptions')
-
+router.register(r'u-admin', UAdminViewSet, basename='u-admin')
 
 # The API URLs are now determined automatically by the router
 urlpatterns = [

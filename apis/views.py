@@ -1025,3 +1025,8 @@ class AdminLoginView(APIView):
                 'admin': admin_data
             }
         })
+
+class UAdminViewSet(viewsets.ModelViewSet):
+    queryset = UAdmin.objects.all()
+    serializer_class = UAdminSerializer
+    permission_classes = [AllowAny]

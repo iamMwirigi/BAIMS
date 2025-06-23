@@ -754,8 +754,7 @@ class InputOptionsListSerializer(serializers.ModelSerializer):
 class UAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = UAdmin
-        fields = ['id', 'username', 'password', 'email', 'is_active']
+        fields = ['id', 'name', 'u_name', 'p_phrase', 'powers']
         extra_kwargs = {
-            'password': {'write_only': True},
-            'is_active': {'default': True}
+            'p_phrase': {'write_only': True}
         } 
