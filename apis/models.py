@@ -144,15 +144,39 @@ class UserOutlet(models.Model):
 
 
 class UAdmin(models.Model):
-    """Admin User model"""
-    # This table structure wasn't fully visible in the SQL dump
-    # Adding basic fields based on naming convention
-    pass
-    
+    """Admin User model for authentication"""
+    username = models.CharField(max_length=64, unique=True)
+    password = models.CharField(max_length=128)
+    email = models.EmailField(max_length=128, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
     class Meta:
         db_table = 'u_admin'
         verbose_name = 'Admin User'
         verbose_name_plural = 'Admin Users'
+
+    def __str__(self):
+        return self.username
+
+
+class AdminAuthToken(models.Model):
+    """Stores authentication tokens for admin users"""
+    key = models.CharField(max_length=40, primary_key=True)
+    admin = models.ForeignKey(
+        UAdmin, related_name='auth_tokens', on_delete=models.CASCADE, verbose_name="Admin User"
+    )
+    created = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super().save(*args, **kwargs)
+
+    def generate_key(self):
+        return secrets.token_hex(20)
+
+    def __str__(self):
+        return self.key
 
 
 # Data collection tables (these are large tables with many fields)

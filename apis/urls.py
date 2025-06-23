@@ -7,7 +7,8 @@ from .views import (
     RedbullOutletViewSet, TotalKenyaViewSet, AppDataViewSet, BaViewSet,
     BackendViewSet, BaProjectViewSet, ProjectAssocViewSet, ContainersViewSet,
     ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet, FormSectionViewSet,
-    FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView
+    FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
+    AdminLoginView
 )
 
 # Create a router and register our viewsets with it
@@ -44,5 +45,6 @@ router.register(r'data/input-options', InputOptionsViewSet, basename='inputoptio
 # The API URLs are now determined automatically by the router
 urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
+    path('admin-login/', AdminLoginView.as_view(), name='admin-login'),
     path('', include(router.urls)),
 ]

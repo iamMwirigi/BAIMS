@@ -5,7 +5,7 @@ from .models import (
     AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
     RedbullOutlet, TotalKenya, AppData, Ba, Backend, BaProject, ProjectAssoc,
     Containers, ContainerOptions, Coop, Coop2, FormSection, FormSubSection,
-    InputGroup, InputOptions
+    InputGroup, InputOptions, UAdmin
 )
 
 # Agency Serializers
@@ -747,4 +747,15 @@ class InputOptionsListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InputOptions
-        fields = ['id'] 
+        fields = ['id']
+
+
+# UAdmin Serializer
+class UAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UAdmin
+        fields = ['id', 'username', 'password', 'email', 'is_active']
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'is_active': {'default': True}
+        } 

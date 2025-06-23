@@ -12,7 +12,7 @@ from .models import (
     AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
     RedbullOutlet, TotalKenya, AppData, Ba, Backend, BaProject, ProjectAssoc,
     Containers, ContainerOptions, Coop, Coop2, FormSection, FormSubSection,
-    InputGroup, InputOptions, AuthToken
+    InputGroup, InputOptions, AuthToken, UAdmin, AdminAuthToken
 )
 from .serializers import (
     UserSerializer, UserListSerializer,
@@ -41,7 +41,8 @@ from .serializers import (
     FormSectionSerializer, FormSectionListSerializer,
     FormSubSectionSerializer, FormSubSectionListSerializer,
     InputGroupSerializer, InputGroupListSerializer,
-    InputOptionsSerializer, InputOptionsListSerializer
+    InputOptionsSerializer, InputOptionsListSerializer,
+    UAdminSerializer
 )
 from django.db import models
 from django.contrib.auth.hashers import check_password
@@ -971,5 +972,56 @@ class LoginView(APIView):
             'data': {
                 'token': token.key,
                 'user': user_data
+            }
+        })
+
+class AdminLoginView(APIView):
+    """
+    Custom login view to authenticate an Admin User and return a token.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response({
+                'success': False,
+                'message': 'Username and password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            admin = UAdmin.objects.get(username=username)
+        except UAdmin.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Invalid credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # NOTE: This assumes you are storing plain text passwords.
+        if admin.password != password:
+            return Response({
+                'success': False,
+                'message': 'Invalid credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not admin.is_active:
+            return Response({
+                'success': False,
+                'message': 'Admin account is inactive'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Get or create a token for the admin
+        token, created = AdminAuthToken.objects.get_or_create(admin=admin)
+
+        admin_data = UAdminSerializer(admin).data
+
+        return Response({
+            'success': True,
+            'message': 'Admin login successful',
+            'data': {
+                'token': token.key,
+                'admin': admin_data
             }
         })
