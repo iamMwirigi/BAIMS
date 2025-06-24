@@ -10,6 +10,8 @@ from .views import (
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
     AdminLoginView, UAdminViewSet, BaLoginView
 )
+from .rich_views import BaRichDataView, BaDataWithRecordsView
+from .data_views import WideDataFilterView, ProjectDataView
 
 # Create a router and register our viewsets with it
 router = DefaultRouter()
@@ -47,5 +49,15 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('admin-login/', AdminLoginView.as_view(), name='admin-login'),
     path('ba-login/', BaLoginView.as_view(), name='ba-login'),
+    
+    # Rich API endpoints
+    path('rich/ba/<int:ba_id>/', BaRichDataView.as_view(), name='ba-rich-data'),
+    path('rich/ba/', BaRichDataView.as_view(), name='ba-rich-data-all'),
+    path('rich/ba/<int:ba_id>/with-data/', BaDataWithRecordsView.as_view(), name='ba-data-with-records'),
+    
+    # Data filtering endpoints
+    path('data/filter/', WideDataFilterView.as_view(), name='wide-data-filter'),
+    path('data/project/<int:project_id>/', ProjectDataView.as_view(), name='project-data'),
+    
     path('', include(router.urls)),
 ]
