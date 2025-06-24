@@ -183,6 +183,26 @@ class AdminAuthToken(models.Model):
         return self.key
 
 
+class BaAuthToken(models.Model):
+    """Stores authentication tokens for BA users"""
+    key = models.CharField(max_length=40, primary_key=True)
+    ba = models.ForeignKey(
+        'Ba', related_name='auth_tokens', on_delete=models.CASCADE, verbose_name="BA User"
+    )
+    created = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super().save(*args, **kwargs)
+
+    def generate_key(self):
+        return secrets.token_hex(20)
+
+    def __str__(self):
+        return self.key
+
+
 # Data collection tables (these are large tables with many fields)
 # For now, I'll create a generic model that can be extended
 

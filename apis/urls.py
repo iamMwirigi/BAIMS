@@ -8,7 +8,7 @@ from .views import (
     BackendViewSet, BaProjectViewSet, ProjectAssocViewSet, ContainersViewSet,
     ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet, FormSectionViewSet,
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
-    AdminLoginView, UAdminViewSet
+    AdminLoginView, UAdminViewSet, BaLoginView
 )
 
 # Create a router and register our viewsets with it
@@ -46,5 +46,6 @@ router.register(r'u-admin', UAdminViewSet, basename='u-admin')
 urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('admin-login/', AdminLoginView.as_view(), name='admin-login'),
+    path('ba-login/', BaLoginView.as_view(), name='ba-login'),
     path('', include(router.urls)),
 ]

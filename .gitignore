@@ -75,3 +75,6 @@ local_settings.py
 .DS_Store
 # Windows
 Thumbs.db
+
+# database
+baims.sql

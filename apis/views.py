@@ -12,7 +12,7 @@ from .models import (
     AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
     RedbullOutlet, TotalKenya, AppData, Ba, Backend, BaProject, ProjectAssoc,
     Containers, ContainerOptions, Coop, Coop2, FormSection, FormSubSection,
-    InputGroup, InputOptions, AuthToken, UAdmin, AdminAuthToken
+    InputGroup, InputOptions, AuthToken, UAdmin, AdminAuthToken, BaAuthToken
 )
 from .serializers import (
     UserSerializer, UserListSerializer,
@@ -1027,3 +1027,52 @@ class UAdminViewSet(viewsets.ModelViewSet):
     queryset = UAdmin.objects.all()
     serializer_class = UAdminSerializer
     permission_classes = [AllowAny]
+
+class BaLoginView(APIView):
+    """
+    Custom login view to authenticate a BA (Business Agent) using phone and pass_code.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        phone = request.data.get('phone')
+        pass_code = request.data.get('pass_code')
+
+        if not phone or not pass_code:
+            return Response({
+                'success': False,
+                'message': 'Phone and pass_code are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            ba = Ba.objects.get(phone=phone)
+        except Ba.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Invalid credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        if ba.pass_code != pass_code:
+            return Response({
+                'success': False,
+                'message': 'Invalid credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Optional: Check if BA is active (if such a field exists)
+        if hasattr(ba, 'active_status') and getattr(ba, 'active_status', 1) != 1:
+            return Response({
+                'success': False,
+                'message': 'BA account is inactive'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Get or create a token for the BA
+        token, created = BaAuthToken.objects.get_or_create(ba=ba)
+
+        return Response({
+            'success': True,
+            'message': 'BA login successful',
+            'data': {
+                'token': token.key,
+                'ba_id': ba.id
+            }
+        })
