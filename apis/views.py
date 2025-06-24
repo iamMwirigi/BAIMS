@@ -655,12 +655,13 @@ class ProjectViewSet(BaseViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        
-        # Check if the user is authenticated and has an associated agency
-        if user.is_authenticated and user.agency:
+        # If the user has an 'agency' attribute (custom User), filter by agency
+        if hasattr(user, 'agency') and user.agency:
             return Project.objects.filter(company=user.agency.id)
-            
-        # If the user has no agency or is not authenticated, return an empty list
+        # If the user is a UAdmin, show all projects
+        if user.__class__.__name__ == 'UAdmin':
+            return Project.objects.all()
+        # Otherwise, return none
         return Project.objects.none()
     
     def get_serializer_class(self):
@@ -676,13 +677,10 @@ class ProjectViewSet(BaseViewSet):
         """
         try:
             project = self.get_object()
-            
             # Get all associated form fields
             form_fields = ProjectAssoc.objects.filter(project=project.id).order_by('rank')
-            
             project_serializer = self.get_serializer(project)
             fields_serializer = ProjectAssocSerializer(form_fields, many=True)
-            
             response_data = {
                 'success': True,
                 'message': 'Form structure retrieved successfully',
@@ -691,9 +689,7 @@ class ProjectViewSet(BaseViewSet):
                     'form_fields': fields_serializer.data
                 }
             }
-            
             return Response(response_data)
-            
         except ObjectDoesNotExist:
             return Response({
                 'success': False,
