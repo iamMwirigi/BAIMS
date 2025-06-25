@@ -343,7 +343,6 @@ class ProjectAssoc(models.Model):
     multiple = models.IntegerField()
     options_available = models.IntegerField()
     options_id = models.IntegerField()
-    formula_id = models.IntegerField()
     
     class Meta:
         db_table = 'project_assoc'
