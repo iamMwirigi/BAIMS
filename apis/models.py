@@ -306,6 +306,10 @@ class Ba(models.Model):
         verbose_name = 'BA'
         verbose_name_plural = 'BAs'
 
+    @property
+    def is_authenticated(self):
+        return True
+
 
 class Backend(models.Model):
     """Backend table"""
