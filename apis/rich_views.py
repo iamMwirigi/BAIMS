@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
-from datetime import datetime, date
+from datetime import datetime
 from .models import Ba, Agency, Project, FormSection, ProjectAssoc, InputOptions
 from .nested_serializers import BaNestedSerializer
 
@@ -36,7 +36,7 @@ class BaRichDataView(APIView):
             # If ba_id is provided, get specific BA
             if ba_id:
                 try:
-                    ba = Ba.objects.get(id=ba_id)
+                    ba = Ba.objects.select_related('company').get(id=ba_id) # Optimize query
                 except Ba.DoesNotExist:
                     return Response({
                         'response': 'error',
@@ -44,7 +44,7 @@ class BaRichDataView(APIView):
                     }, status=status.HTTP_404_NOT_FOUND)
                 
                 # Apply filters
-                ba = self._apply_filters(ba, start_date, end_date, project_id, form_id, company)
+                ba.projects = self._get_filtered_projects(ba, start_date, end_date, project_id, form_id) # Assign filtered projects
                 serializer = BaNestedSerializer(ba)
                 return Response(serializer.data)
             
@@ -54,7 +54,7 @@ class BaRichDataView(APIView):
             # Apply company filter
             if company:
                 try:
-                    agency = Agency.objects.get(name__icontains=company)
+                    agency = Agency.objects.get(name__icontains=company) # Case-insensitive search
                     queryset = queryset.filter(company=agency.id)
                 except Agency.DoesNotExist:
                     return Response({
@@ -65,8 +65,8 @@ class BaRichDataView(APIView):
             # Get BAs and apply filters
             bas = []
             for ba in queryset:
-                filtered_ba = self._apply_filters(ba, start_date, end_date, project_id, form_id, company)
-                if filtered_ba:
+                ba.projects = self._get_filtered_projects(ba, start_date, end_date, project_id, form_id)
+                if ba.projects.exists(): # Only include BA if they have projects after filtering
                     serializer = BaNestedSerializer(filtered_ba)
                     bas.append(serializer.data)
             
@@ -82,13 +82,13 @@ class BaRichDataView(APIView):
                 'message': f'An error occurred: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    def _apply_filters(self, ba, start_date, end_date, project_id, form_id, company):
+    def _get_filtered_projects(self, ba, start_date, end_date, project_id, form_id):
         """
-        Apply filters to BA data and return filtered BA object
+        Apply filters to projects associated with a BA's company and return a filtered queryset.
         """
         # Get projects for this BA's company
-        projects = Project.objects.filter(company=ba.company, status=1).order_by('rank')
-        
+        projects = Project.objects.filter(company=ba.company, status=True).order_by('rank') \
+            .prefetch_related('form_sections__associations__input_options') # Optimize queries
         # Apply project filter
         if project_id:
             try:
@@ -97,23 +97,26 @@ class BaRichDataView(APIView):
                 return None
         
         # Apply date filters (if you have date fields in your data)
+        # Assuming start_date/end_date apply to project's start/end dates
         if start_date or end_date:
-            # This would need to be implemented based on your data structure
-            # For now, we'll just pass through
-            pass
+            if start_date:
+                try:
+                    start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+                    projects = projects.filter(start_date__gte=start_date_obj)
+                except ValueError:
+                    pass # Invalid date format, ignore filter
+            if end_date:
+                try:
+                    end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+                    projects = projects.filter(end_date__lte=end_date_obj)
+                except ValueError:
+                    pass # Invalid date format, ignore filter
         
         # Apply form filter
         if form_id:
-            # Filter projects that have the specified form
-            projects_with_form = []
-            for project in projects:
-                if FormSection.objects.filter(id=form_id, project=project.id).exists():
-                    projects_with_form.append(project)
-            projects = projects_with_form
-        
-        # Create a temporary BA object with filtered projects
-        ba.projects = projects
-        return ba
+            projects = projects.filter(form_sections__id=form_id).distinct()
+
+        return projects
 
 
 class BaDataWithRecordsView(APIView):
@@ -140,7 +143,7 @@ class BaDataWithRecordsView(APIView):
             
             # Get BA
             try:
-                ba = Ba.objects.get(id=ba_id)
+                ba = Ba.objects.select_related('company').get(id=ba_id) # Optimize query
             except Ba.DoesNotExist:
                 return Response({
                     'response': 'error',
@@ -148,15 +151,11 @@ class BaDataWithRecordsView(APIView):
                 }, status=status.HTTP_404_NOT_FOUND)
             
             # Get agency name
-            agency_name = "Unknown Agency"
-            try:
-                agency = Agency.objects.get(id=ba.company)
-                agency_name = agency.name
-            except Agency.DoesNotExist:
-                pass
+            agency_name = ba.company.name if ba.company else "Unknown Agency"
             
             # Get projects
-            projects = Project.objects.filter(company=ba.company, status=1).order_by('rank')
+            projects = Project.objects.filter(company=ba.company, status=True).order_by('rank') \
+                .prefetch_related('form_sections__associations__input_options') # Optimize queries
             
             # Apply project filter
             if project_id:
@@ -196,7 +195,7 @@ class BaDataWithRecordsView(APIView):
         Get project data with forms and optionally data records
         """
         # Get form sections
-        form_sections = FormSection.objects.filter(project=project.id).order_by('rank')
+        form_sections = FormSection.objects.filter(project=project).order_by('rank')
         
         forms_data = []
         for form_section in form_sections:
@@ -245,7 +244,7 @@ class BaDataWithRecordsView(APIView):
         Get field data with options and optionally data values
         """
         # Get input options
-        input_options = InputOptions.objects.filter(field_id=project_assoc.id)
+        input_options = InputOptions.objects.filter(field=project_assoc).order_by('rank')
         options_data = []
         for option in input_options:
             options_data.append({
@@ -268,8 +267,11 @@ class BaDataWithRecordsView(APIView):
         # If include_data is True, you could add actual data values here
         # This would require querying the wide data tables (airtel_combined, etc.)
         if include_data:
-            # This is where you'd add logic to get actual data values
-            # from the wide tables based on the column_name
-            pass
+            # Determine the data table based on the project's holding_table or a default
+            data_table_name = project_assoc.project.top_table # Assuming top_table holds the data table name
+            if data_table_name:
+                field_data['data_values'] = self._get_field_data_values(
+                    project_assoc.column_name, ba.id, start_date, end_date, data_table_name
+                )
         
         return field_data 

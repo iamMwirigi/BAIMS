@@ -1,8 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.db import models
-from django.db.models import Q
+from django.db.models import Q # models import is not needed here
 from django.core.exceptions import ObjectDoesNotExist
 from datetime import datetime, date
 from .models import (
@@ -61,19 +60,14 @@ class WideDataFilterView(APIView):
             # Apply filters
             if ba_id:
                 queryset = queryset.filter(ba_id=ba_id)
-            
-            # Only filter by project if the model has a 'project' or 'project_id' field
+
             if project_id:
-                # If the table is 'ba', skip filtering by project_id because Ba has no such field
-                if table_name == 'ba':
-                    # If you want to filter BAs by project, you would need to use the BaProject mapping table
-                    # Example:
-                    #   ba_ids = BaProject.objects.filter(project_id=project_id).values_list('ba_id', flat=True)
-                    #   queryset = queryset.filter(id__in=ba_ids)
-                    pass  # Do nothing for 'ba' table
-                else:
-                    available_fields = [f.name for f in model_class._meta.fields]
-                    project_field = None
+                # Check if the model has a 'project' ForeignKey
+                if hasattr(model_class, 'project') and isinstance(model_class._meta.get_field('project'), models.ForeignKey):
+                    queryset = queryset.filter(project__id=project_id)
+                else: # Fallback for models that might use IntegerField for project_id
+                    available_fields = [f.name for f in model_class._meta.get_fields()]
+                    project_field = None # Reset project_field
                     for candidate in ['project', 'project_id']:
                         if candidate in available_fields:
                             project_field = candidate
@@ -85,14 +79,14 @@ class WideDataFilterView(APIView):
             if start_date:
                 try:
                     start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-                    queryset = queryset.filter(t_date__gte=start_date_obj)
+                    queryset = queryset.filter(t_date__gte=start_date_obj) # Assuming t_date exists
                 except ValueError:
                     return Response({
                         'response': 'error',
                         'message': 'Invalid start_date format. Use YYYY-MM-DD'
                     }, status=status.HTTP_400_BAD_REQUEST)
             
-            if end_date:
+            if end_date: # Assuming t_date exists
                 try:
                     end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
                     queryset = queryset.filter(t_date__lte=end_date_obj)
@@ -107,8 +101,8 @@ class WideDataFilterView(APIView):
             
             # Get field names
             if fields and fields[0]:  # Check if fields is not empty
-                # Filter to only include specified fields
-                available_fields = [f.name for f in model_class._meta.fields]
+                # Filter to only include specified fields that exist in the model
+                available_fields = [f.name for f in model_class._meta.get_fields()]
                 valid_fields = [f for f in fields if f in available_fields]
                 if not valid_fields:
                     return Response({
@@ -117,7 +111,7 @@ class WideDataFilterView(APIView):
                     }, status=status.HTTP_400_BAD_REQUEST)
             else:
                 # Get all fields
-                valid_fields = [f.name for f in model_class._meta.fields]
+                valid_fields = [f.name for f in model_class._meta.get_fields()]
             
             # Serialize data
             data = []
@@ -181,15 +175,15 @@ class ProjectDataView(APIView):
             
             # Get project
             try:
-                project = Project.objects.get(id=project_id)  # type: ignore[attr-defined]
-            except Project.DoesNotExist:  # type: ignore[attr-defined]
+                project = Project.objects.select_related('company').get(id=project_id)
+            except Project.DoesNotExist:
                 return Response({
                     'response': 'error',
                     'message': f'Project with ID {project_id} not found'
                 }, status=status.HTTP_404_NOT_FOUND)
-            
+
             # Get form sections
-            form_sections = FormSection.objects.filter(project=project.id).order_by('rank')  # type: ignore[attr-defined]
+            form_sections = FormSection.objects.filter(project=project).order_by('rank')
             
             forms_data = []
             for form_section in form_sections:
@@ -200,12 +194,8 @@ class ProjectDataView(APIView):
                     forms_data.append(form_data)
             
             # Get agency name
-            agency_name = "Unknown Agency"
-            try:
-                agency = Agency.objects.get(id=project.company)  # type: ignore[attr-defined]
-                agency_name = agency.name
-            except Agency.DoesNotExist:  # type: ignore[attr-defined]
-                pass
+            agency_name = project.company.name if project.company else "Unknown Agency"
+
             
             response_data = {
                 "response": "success",
@@ -227,7 +217,7 @@ class ProjectDataView(APIView):
     def _get_form_data(self, form_section, ba_id, start_date, end_date, include_data, data_table):
         """Get form data with fields and optionally data records"""
         # Get project associations (fields)
-        project_assocs = ProjectAssoc.objects.filter(project=form_section.project).order_by('rank')  # type: ignore[attr-defined]
+        project_assocs = ProjectAssoc.objects.filter(project=form_section.project).order_by('rank')
         
         fields_data = []
         for project_assoc in project_assocs:
@@ -254,7 +244,7 @@ class ProjectDataView(APIView):
     def _get_field_data(self, project_assoc, ba_id, start_date, end_date, include_data, data_table):
         """Get field data with options and optionally data values"""
         # Get input options
-        input_options = InputOptions.objects.filter(field_id=project_assoc.id)  # type: ignore[attr-defined]
+        input_options = InputOptions.objects.filter(field=project_assoc).order_by('rank') # Use FK
         options_data = []
         for option in input_options:
             options_data.append({
@@ -294,14 +284,14 @@ class ProjectDataView(APIView):
             queryset = model_class.objects.all()
             
             # Apply filters
-            if ba_id:
-                queryset = queryset.filter(ba_id=ba_id)
+            if ba_id and hasattr(model_class, 'ba'): # Check if model has a 'ba' FK
+                queryset = queryset.filter(ba__id=ba_id)
             
             if start_date:
                 start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-                queryset = queryset.filter(t_date__gte=start_date_obj)
+                queryset = queryset.filter(t_date__gte=start_date_obj) # Assuming t_date exists
             
-            if end_date:
+            if end_date: # Assuming t_date exists
                 end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
                 queryset = queryset.filter(t_date__lte=end_date_obj)
             
