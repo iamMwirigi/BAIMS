@@ -650,7 +650,7 @@ class AgencyViewSet(BaseViewSet):
         user = self.request.user
 
         if isinstance(user, UAdmin):
-            return Agency.objects.all()
+            return user.agencies.all()
 
         if isinstance(user, Ba):
             if user.company:
@@ -676,20 +676,17 @@ class ProjectViewSet(BaseViewSet):
     def get_queryset(self):
         user = self.request.user
         
-        # UAdmin sees all projects
         if isinstance(user, UAdmin):
-            return Project.objects.all()
+            agency_ids = user.agencies.values_list('id', flat=True)
+            return Project.objects.filter(company__in=agency_ids)
 
-        # BA sees projects they are assigned to via BaProject
         if isinstance(user, Ba):
             project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
             return Project.objects.filter(id__in=project_ids)
 
-        # Regular User sees projects for their agency
         if hasattr(user, 'agency') and user.agency:
             return Project.objects.filter(company=user.agency.id)
             
-        # Default to no projects
         return Project.objects.none()
     
     def get_serializer_class(self):
@@ -737,6 +734,21 @@ class ProjectHeadViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return ProjectHead.objects.filter(project_id__in=project_ids)
+        
+        allowed_project_ids = []
+        if isinstance(user, Ba):
+            allowed_project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+        elif hasattr(user, 'agency') and user.agency:
+            allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+
+        return ProjectHead.objects.filter(project_id__in=allowed_project_ids)
+
     def get_serializer_class(self):
         if self.action == 'list':
             return ProjectHeadListSerializer
@@ -752,7 +764,8 @@ class BranchViewSet(BaseViewSet):
         user = self.request.user
         
         if isinstance(user, UAdmin):
-            return Branch.objects.all()
+            agency_ids = user.agencies.values_list('id', flat=True)
+            return Branch.objects.filter(company_id__in=agency_ids)
 
         if isinstance(user, Ba):
             if user.company:
@@ -779,15 +792,14 @@ class OutletViewSet(BaseViewSet):
         user = self.request.user
         
         if isinstance(user, UAdmin):
-            return Outlet.objects.all()
+            agency_ids = user.agencies.values_list('id', flat=True)
+            return Outlet.objects.filter(branch__company_id__in=agency_ids)
 
-        # BAs see outlets belonging to their company's branches
         if isinstance(user, Ba):
             if user.company:
                 return Outlet.objects.filter(branch__company_id=user.company)
             return Outlet.objects.none()
 
-        # Regular Users see outlets assigned to them via UserOutlet
         if isinstance(user, User):
              outlet_ids = UserOutlet.objects.filter(user=user).values_list('outlet_id', flat=True)
              return Outlet.objects.filter(id__in=outlet_ids)
@@ -805,6 +817,17 @@ class UserOutletViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            return UserOutlet.objects.filter(outlet__branch__company_id__in=agency_ids)
+        if isinstance(user, User):
+            return UserOutlet.objects.filter(user=user)
+        if isinstance(user, Ba) and user.company:
+            return UserOutlet.objects.filter(outlet__branch__company_id=user.company)
+        return UserOutlet.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return UserOutletListSerializer
@@ -819,6 +842,19 @@ class AirtelCombinedViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return AirtelCombined.objects.filter(project_id__in=project_ids)
+        if isinstance(user, Ba):
+            return AirtelCombined.objects.filter(ba_id=user.id)
+        if hasattr(user, 'agency') and user.agency:
+            project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+            return AirtelCombined.objects.filter(project_id__in=project_ids)
+        return AirtelCombined.objects.none()
+    
     def get_serializer_class(self):
         if self.action == 'list':
             return AirtelCombinedListSerializer
@@ -830,6 +866,19 @@ class CokeCombinedViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return CokeCombined.objects.filter(project_id__in=project_ids)
+        if isinstance(user, Ba):
+            return CokeCombined.objects.filter(ba_id=user.id)
+        if hasattr(user, 'agency') and user.agency:
+            project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+            return CokeCombined.objects.filter(project_id__in=project_ids)
+        return CokeCombined.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return CokeCombinedListSerializer
@@ -841,6 +890,19 @@ class BaimsCombinedViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return BaimsCombined.objects.filter(project_id__in=project_ids)
+        if isinstance(user, Ba):
+            return BaimsCombined.objects.filter(ba_id=user.id)
+        if hasattr(user, 'agency') and user.agency:
+            project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+            return BaimsCombined.objects.filter(project_id__in=project_ids)
+        return BaimsCombined.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return BaimsCombinedListSerializer
@@ -852,6 +914,19 @@ class KspcaCombinedViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return KspcaCombined.objects.filter(project_id__in=project_ids)
+        if isinstance(user, Ba):
+            return KspcaCombined.objects.filter(ba_id=user.id)
+        if hasattr(user, 'agency') and user.agency:
+            project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+            return KspcaCombined.objects.filter(project_id__in=project_ids)
+        return KspcaCombined.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return KspcaCombinedListSerializer
@@ -863,6 +938,19 @@ class SaffCombinedViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return SaffCombined.objects.filter(project_id__in=project_ids)
+        if isinstance(user, Ba):
+            return SaffCombined.objects.filter(ba_id=user.id)
+        if hasattr(user, 'agency') and user.agency:
+            project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+            return SaffCombined.objects.filter(project_id__in=project_ids)
+        return SaffCombined.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return SaffCombinedListSerializer
@@ -929,6 +1017,16 @@ class BaProjectViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            ba_ids = Ba.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return BaProject.objects.filter(ba_id__in=ba_ids)
+        if isinstance(user, Ba):
+            return BaProject.objects.filter(ba=user)
+        return BaProject.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return BaProjectListSerializer
@@ -940,6 +1038,21 @@ class ProjectAssocViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return ProjectAssoc.objects.filter(project__in=project_ids)
+        
+        allowed_project_ids = []
+        if isinstance(user, Ba):
+            allowed_project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+        elif hasattr(user, 'agency') and user.agency:
+            allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+
+        return ProjectAssoc.objects.filter(project__in=allowed_project_ids)
+
     def get_serializer_class(self):
         if self.action == 'list':
             return ProjectAssocListSerializer
@@ -995,6 +1108,21 @@ class FormSectionViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+            return FormSection.objects.filter(project_id__in=project_ids)
+        
+        allowed_project_ids = []
+        if isinstance(user, Ba):
+            allowed_project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+        elif hasattr(user, 'agency') and user.agency:
+            allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+
+        return FormSection.objects.filter(project_id__in=allowed_project_ids)
+
     def get_serializer_class(self):
         if self.action == 'list':
             return FormSectionListSerializer

@@ -149,6 +149,12 @@ class UAdmin(models.Model):
     u_name = models.TextField()
     p_phrase = models.TextField()
     powers = models.CharField(max_length=64)
+    agencies = models.ManyToManyField(
+        Agency, 
+        through='UAdminAgency',
+        related_name='admins', 
+        blank=True
+    )
     
     class Meta:
         db_table = 'u_admin'
@@ -161,6 +167,16 @@ class UAdmin(models.Model):
     @property
     def is_authenticated(self):
         return True
+
+
+class UAdminAgency(models.Model):
+    """Manual through table for UAdmin and Agency many-to-many relationship"""
+    uadmin = models.ForeignKey(UAdmin, on_delete=models.CASCADE, db_column='uadmin_id')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, db_column='agency_id')
+
+    class Meta:
+        db_table = 'u_admin_agencies'
+        unique_together = ('uadmin', 'agency')
 
 
 class AdminAuthToken(models.Model):
