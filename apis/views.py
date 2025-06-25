@@ -695,6 +695,32 @@ class ProjectViewSet(BaseViewSet):
             return ProjectListSerializer
         return ProjectSerializer
 
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        user = request.user
+        company_id = data.get('company')
+        if not company_id:
+            if isinstance(user, UAdmin):
+                agencies = user.agencies.all()
+                if agencies.count() == 0:
+                    return Response({"success": False, "message": "Admin user is not associated with any company."}, status=status.HTTP_403_FORBIDDEN)
+                if agencies.count() == 1:
+                    company_id = agencies.first().id
+                else:
+                    return Response({"success": False, "message": "Admin with multiple companies must specify a 'company' ID."}, status=status.HTTP_400_BAD_REQUEST)
+                data['company'] = company_id
+            else:
+                return Response({"success": False, "message": "You must specify a company."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response({
+            'success': True,
+            'message': 'Item created successfully',
+            'data': {'item': serializer.data}
+        }, status=status.HTTP_201_CREATED, headers=headers)
+
     @action(detail=True, methods=['get'], url_path='view-form')
     def view_form(self, request, pk=None):
         """
