@@ -404,6 +404,9 @@ class Coop2(models.Model):
 
 class FormSection(models.Model):
     """Form Section table"""
+    # project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='form_sections')
+    title = models.TextField()
+    rank = models.IntegerField()
     
     class Meta:
         db_table = 'form_section'
