@@ -507,8 +507,7 @@ class ProjectAssocSerializer(serializers.ModelSerializer):
         model = ProjectAssoc
         fields = [
             'id', 'project', 'report_display_name', 'column_name', 'rank',
-            'field_type', 'multiple', 'options_available', 'options_id',
-            'formula_id'
+            'field_type', 'multiple', 'options_available', 'options_id'
         ]
     
     def create(self, validated_data):
@@ -529,8 +528,7 @@ class ProjectAssocListSerializer(serializers.ModelSerializer):
         model = ProjectAssoc
         fields = [
             'id', 'project', 'report_display_name', 'column_name', 'rank',
-            'field_type', 'multiple', 'options_available', 'options_id',
-            'formula_id'
+            'field_type', 'multiple', 'options_available', 'options_id'
         ]
 
 
