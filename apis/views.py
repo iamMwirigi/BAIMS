@@ -1224,7 +1224,7 @@ class FormSectionViewSet(BaseViewSet):
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
             project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
-            return FormSection.objects.filter(project_id__in=project_ids)
+            return FormSection.objects.filter(project__in=project_ids)
         
         allowed_project_ids = []
         if isinstance(user, Ba):
@@ -1232,7 +1232,7 @@ class FormSectionViewSet(BaseViewSet):
         elif hasattr(user, 'agency') and user.agency:
             allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
 
-        return FormSection.objects.filter(project_id__in=allowed_project_ids)
+        return FormSection.objects.filter(project__in=allowed_project_ids)
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -1374,9 +1374,58 @@ class AdminLoginView(APIView):
         })
 
 class UAdminViewSet(viewsets.ModelViewSet):
+    """ViewSet for UAdmin model"""
     queryset = UAdmin.objects.all()
     serializer_class = UAdminSerializer
-    permission_classes = [AllowAny]
+    authentication_classes = [AdminTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=True, methods=['post'], url_path='assign-agency')
+    def assign_agency(self, request, pk=None):
+        """Assign an agency to this admin user."""
+        admin = self.get_object()
+        agency_id = request.data.get('agency_id')
+
+        if not agency_id:
+            return Response({'success': False, 'message': 'agency_id is required in the request body.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            agency = Agency.objects.get(id=agency_id)
+        except Agency.DoesNotExist:
+            return Response({'success': False, 'message': f'Agency with ID {agency_id} not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        admin.agencies.add(agency)
+        serializer = self.get_serializer(admin)
+        return Response({
+            'success': True,
+            'message': f'Successfully assigned agency "{agency.name}" to admin "{admin.u_name}".',
+            'data': serializer.data
+        })
+
+    @action(detail=True, methods=['post'], url_path='unassign-agency')
+    def unassign_agency(self, request, pk=None):
+        """Unassign an agency from this admin user."""
+        admin = self.get_object()
+        agency_id = request.data.get('agency_id')
+
+        if not agency_id:
+            return Response({'success': False, 'message': 'agency_id is required in the request body.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            agency = Agency.objects.get(id=agency_id)
+        except Agency.DoesNotExist:
+             return Response({'success': False, 'message': f'Agency with ID {agency_id} not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not admin.agencies.filter(id=agency.id).exists():
+            return Response({'success': False, 'message': f'Admin "{admin.u_name}" is not assigned to agency "{agency.name}".'}, status=status.HTTP_400_BAD_REQUEST)
+
+        admin.agencies.remove(agency)
+        serializer = self.get_serializer(admin)
+        return Response({
+            'success': True,
+            'message': f'Successfully unassigned agency "{agency.name}" from admin "{admin.u_name}".',
+            'data': serializer.data
+        })
 
 class BaLoginView(APIView):
     """

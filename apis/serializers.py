@@ -757,12 +757,13 @@ class InputOptionsListSerializer(serializers.ModelSerializer):
 # UAdmin Serializer
 class UAdminSerializer(serializers.ModelSerializer):
     """Serializer for UAdmin model"""
-    
+    agencies = AgencyListSerializer(many=True, read_only=True)
+
     class Meta:
         model = UAdmin
-        fields = ['id', 'name', 'u_name', 'p_phrase', 'powers']
+        fields = ['id', 'name', 'u_name', 'p_phrase', 'powers', 'agencies']
         extra_kwargs = {
-            'p_phrase': {'write_only': True},  # Don't include password in responses
+            'p_phrase': {'write_only': True}
         }
     
     def create(self, validated_data):
