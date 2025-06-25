@@ -1327,22 +1327,23 @@ class ProjectHeadWithProjectsView(APIView):
             projects = Project.objects.filter(company=head.company)
             project_list = []
             for project in projects:
-                form_details = ProjectAssoc.objects.filter(project=project.id).order_by('rank')
-                form_details_serialized = ProjectAssocSerializer(form_details, many=True).data
+                form_details = {
+                    'id': project.id,
+                    'name': project.name,
+                    'client': project.client,
+                    'top_table': project.top_table,
+                    'rank': project.rank,
+                    'combined': project.combined,
+                    'status': project.status,
+                    'location_status': project.location_status,
+                    'company': project.company,
+                    'image_required': project.image_required,
+                }
+                form_fields = ProjectAssoc.objects.filter(project=project.id).order_by('rank')
+                form_fields_serialized = ProjectAssocSerializer(form_fields, many=True).data
                 project_list.append({
-                    'form_details': {
-                        'id': project.id,
-                        'name': project.name,
-                        'client': project.client,
-                        'top_table': project.top_table,
-                        'rank': project.rank,
-                        'combined': project.combined,
-                        'status': project.status,
-                        'location_status': project.location_status,
-                        'company': project.company,
-                        'image_required': project.image_required,
-                    },
-                    'form_fields': form_details_serialized
+                    'form_details': form_details,
+                    'form_fields': form_fields_serialized
                 })
             data.append({
                 'project_head': {
