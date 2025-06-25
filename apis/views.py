@@ -1317,10 +1317,13 @@ class ProjectHeadWithProjectsView(APIView):
 
     def get(self, request):
         user = request.user
-        # Only allow for UAdmin
-        if not isinstance(user, UAdmin):
-            return Response({'detail': 'Only admins can access this endpoint.'}, status=403)
-        agency_ids = user.agencies.values_list('id', flat=True)
+        # Allow for UAdmin and Ba
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+        elif isinstance(user, Ba):
+            agency_ids = [user.company] if user.company else []
+        else:
+            return Response({'detail': 'Only admins and BAs can access this endpoint.'}, status=403)
         project_heads = ProjectHead.objects.filter(company__in=agency_ids)
         data = []
         for head in project_heads:
@@ -1330,10 +1333,19 @@ class ProjectHeadWithProjectsView(APIView):
                 form_details = ProjectAssoc.objects.filter(project=project.id).order_by('rank')
                 form_details_serialized = ProjectAssocSerializer(form_details, many=True).data
                 project_list.append({
-                    'id': project.id,
-                    'name': project.name,
-                    'company': project.company,
-                    'form_details': form_details_serialized
+                    'form_details': {
+                        'id': project.id,
+                        'name': project.name,
+                        'client': project.client,
+                        'top_table': project.top_table,
+                        'rank': project.rank,
+                        'combined': project.combined,
+                        'status': project.status,
+                        'location_status': project.location_status,
+                        'company': project.company,
+                        'image_required': project.image_required,
+                    },
+                    'form_fields': form_details_serialized
                 })
             data.append({
                 'project_head': {
