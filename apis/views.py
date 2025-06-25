@@ -738,16 +738,13 @@ class ProjectHeadViewSet(BaseViewSet):
         user = self.request.user
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
-            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
-            return ProjectHead.objects.filter(project_id__in=project_ids)
-        
-        allowed_project_ids = []
+            return ProjectHead.objects.filter(company__in=agency_ids)
+        allowed_agency_ids = []
         if isinstance(user, Ba):
-            allowed_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            allowed_agency_ids = [user.company] if user.company else []
         elif hasattr(user, 'agency') and user.agency:
-            allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
-
-        return ProjectHead.objects.filter(project_id__in=allowed_project_ids)
+            allowed_agency_ids = [user.agency.id]
+        return ProjectHead.objects.filter(company__in=allowed_agency_ids)
 
     def get_serializer_class(self):
         if self.action == 'list':
