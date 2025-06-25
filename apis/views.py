@@ -1036,6 +1036,17 @@ class BaViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            return Ba.objects.filter(company__in=agency_ids)
+        elif isinstance(user, Ba):
+            return Ba.objects.filter(id=user.id)
+        elif hasattr(user, 'agency') and user.agency:
+            return Ba.objects.filter(company=user.agency.id)
+        return Ba.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return BaListSerializer
@@ -1525,3 +1536,44 @@ class ProjectHeadWithProjectsView(APIView):
                 'projects': project_list
             })
         return Response({'results': data})
+
+    def post(self, request):
+        """
+        Create a new ProjectHead (and optionally assign projects).
+        """
+        data = request.data
+        name = data.get('name')
+        aka_name = data.get('aka_name')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        company = data.get('company')
+        projects = data.get('projects', [])
+
+        if not name or not aka_name or not company:
+            return Response({'success': False, 'message': 'name, aka_name, and company are required.'}, status=400)
+
+        # Create the ProjectHead
+        project_head = ProjectHead.objects.create(
+            name=name,
+            aka_name=aka_name,
+            start_date=start_date,
+            end_date=end_date,
+            company=company
+        )
+
+        # Optionally assign projects (if you want to link in a custom way, add here)
+        # For now, just return the created head and the project IDs
+
+        return Response({
+            'success': True,
+            'message': 'Project Head created successfully.',
+            'data': {
+                'id': project_head.id,
+                'name': project_head.name,
+                'aka_name': project_head.aka_name,
+                'start_date': str(project_head.start_date) if project_head.start_date else None,
+                'end_date': str(project_head.end_date) if project_head.end_date else None,
+                'company': project_head.company,
+                'projects': projects
+            }
+        }, status=201)
