@@ -117,6 +117,9 @@ class ProjectHeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectHead
         fields = ['id', 'name', 'company', 'start_date', 'end_date', 'aka_name']
+        extra_kwargs = {
+            'company': {'required': False}
+        }
     
     def create(self, validated_data):
         """Create a new project head"""
@@ -424,6 +427,9 @@ class BaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ba
         fields = ['id', 'name', 'phone', 'company', 'pass_code']
+        extra_kwargs = {
+            'company': {'required': False}
+        }
     
     def create(self, validated_data):
         """Create a new BA record"""

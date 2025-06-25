@@ -48,6 +48,7 @@ from django.db import models
 from django.contrib.auth.hashers import check_password
 from rest_framework.authtoken.models import Token
 from .authentication import TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication
+from datetime import date, timedelta
 
 # Custom exception handler for better error messages
 def custom_exception_handler(exc, context):
@@ -751,6 +752,54 @@ class ProjectHeadViewSet(BaseViewSet):
             return ProjectHeadListSerializer
         return ProjectHeadSerializer
 
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new ProjectHead.
+        The company_id is inferred from the user token if possible.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        company_id_from_request = request.data.get('company')
+        company_id = None
+
+        if isinstance(user, UAdmin):
+            agencies = user.agencies.all()
+            if agencies.count() == 0:
+                return Response({"success": False, "message": "Admin user is not associated with any company."}, status=status.HTTP_403_FORBIDDEN)
+            
+            if not company_id_from_request:
+                if agencies.count() == 1:
+                    company_id = agencies.first().id
+                else:
+                    return Response({"success": False, "message": "Admin with multiple companies must specify a 'company' ID."}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                company_id = company_id_from_request
+
+            allowed_company_ids = agencies.values_list('id', flat=True)
+            if int(company_id) not in allowed_company_ids:
+                return Response({"success": False, "message": "You do not have permission for this company."}, status=status.HTTP_403_FORBIDDEN)
+
+        elif isinstance(user, Ba):
+            if not user.company:
+                 return Response({"success": False, "message": "BA user is not associated with any company."}, status=status.HTTP_403_FORBIDDEN)
+            company_id = user.company
+        
+        elif hasattr(user, 'agency') and user.agency:
+            company_id = user.agency.id
+        
+        else:
+            return Response({"success": False, "message": "Could not determine company from user token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        project_head = serializer.save(company=company_id)
+        
+        return Response({
+            'success': True,
+            'message': 'Project Head created successfully.',
+            'data': self.get_serializer(project_head).data
+        }, status=status.HTTP_201_CREATED)
+
 class BranchViewSet(BaseViewSet):
     """ViewSet for Branch model"""
     queryset = Branch.objects.all()
@@ -991,6 +1040,76 @@ class BaViewSet(BaseViewSet):
         if self.action == 'list':
             return BaListSerializer
         return BaSerializer
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new BA.
+        The company_id is inferred from the user token if possible.
+        Automatically associate them with projects based on their company.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user = request.user
+        company_id_from_request = request.data.get('company')
+        company_id = None
+
+        if isinstance(user, UAdmin):
+            agencies = user.agencies.all()
+            if agencies.count() == 0:
+                return Response({"success": False, "message": "Admin user is not associated with any company."}, status=status.HTTP_403_FORBIDDEN)
+            
+            if not company_id_from_request:
+                if agencies.count() == 1:
+                    company_id = agencies.first().id
+                else:
+                    return Response({"success": False, "message": "Admin with multiple companies must specify a 'company' ID."}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                company_id = company_id_from_request
+
+            allowed_company_ids = agencies.values_list('id', flat=True)
+            if int(company_id) not in allowed_company_ids:
+                return Response({"success": False, "message": "You do not have permission for this company."}, status=status.HTTP_403_FORBIDDEN)
+
+        elif isinstance(user, Ba):
+            if not user.company:
+                 return Response({"success": False, "message": "BA user is not associated with any company."}, status=status.HTTP_403_FORBIDDEN)
+            company_id = user.company
+        
+        elif hasattr(user, 'agency') and user.agency:
+            company_id = user.agency.id
+            
+        else:
+            return Response({"success": False, "message": "Could not determine company from user token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        ba = serializer.save(company=company_id)
+        
+        projects = Project.objects.filter(company=company_id)
+        
+        start_date_str = request.data.get('start_date')
+        end_date_str = request.data.get('end_date')
+
+        try:
+            start_date = date.fromisoformat(start_date_str) if start_date_str else date.today()
+            end_date = date.fromisoformat(end_date_str) if end_date_str else date.today() + timedelta(days=365 * 5)
+        except (ValueError, TypeError):
+            start_date = date.today()
+            end_date = date.today() + timedelta(days=365*5)
+
+        ba_projects = []
+        for project in projects:
+            ba_projects.append(
+                BaProject(ba_id=ba.id, project_id=project.id, start_date=start_date, end_date=end_date)
+            )
+        
+        if ba_projects:
+            BaProject.objects.bulk_create(ba_projects)
+            
+        return Response({
+            'success': True,
+            'message': f'BA created and assigned to {len(ba_projects)} projects.',
+            'data': BaListSerializer(ba).data
+        }, status=status.HTTP_201_CREATED)
 
 class BackendViewSet(BaseViewSet):
     """ViewSet for Backend model"""
