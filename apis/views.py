@@ -1310,3 +1310,40 @@ class BaLoginView(APIView):
                 'ba_id': ba.id
             }
         })
+
+class ProjectHeadWithProjectsView(APIView):
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        # Only allow for UAdmin
+        if not isinstance(user, UAdmin):
+            return Response({'detail': 'Only admins can access this endpoint.'}, status=403)
+        agency_ids = user.agencies.values_list('id', flat=True)
+        project_heads = ProjectHead.objects.filter(company__in=agency_ids)
+        data = []
+        for head in project_heads:
+            projects = Project.objects.filter(company=head.company)
+            project_list = []
+            for project in projects:
+                form_details = ProjectAssoc.objects.filter(project=project.id).order_by('rank')
+                form_details_serialized = ProjectAssocSerializer(form_details, many=True).data
+                project_list.append({
+                    'id': project.id,
+                    'name': project.name,
+                    'company': project.company,
+                    'form_details': form_details_serialized
+                })
+            data.append({
+                'project_head': {
+                    'id': head.id,
+                    'name': head.name,
+                    'company': head.company,
+                    'start_date': str(head.start_date) if head.start_date else None,
+                    'end_date': str(head.end_date) if head.end_date else None,
+                    'aka_name': head.aka_name,
+                },
+                'projects': project_list
+            })
+        return Response({'results': data})
