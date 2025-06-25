@@ -47,6 +47,7 @@ from .serializers import (
 from django.db import models
 from django.contrib.auth.hashers import check_password
 from rest_framework.authtoken.models import Token
+from .authentication import TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication
 
 # Custom exception handler for better error messages
 def custom_exception_handler(exc, context):
@@ -642,6 +643,8 @@ class UserViewSet(viewsets.ModelViewSet):
 class AgencyViewSet(BaseViewSet):
     """ViewSet for Agency model"""
     queryset = Agency.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -652,6 +655,7 @@ class ProjectViewSet(BaseViewSet):
     """ViewSet for Project model"""
     queryset = Project.objects.all()
     permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
 
     def get_queryset(self):
         user = self.request.user
@@ -706,6 +710,8 @@ class ProjectViewSet(BaseViewSet):
 class ProjectHeadViewSet(BaseViewSet):
     """ViewSet for ProjectHead model"""
     queryset = ProjectHead.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -715,6 +721,8 @@ class ProjectHeadViewSet(BaseViewSet):
 class BranchViewSet(BaseViewSet):
     """ViewSet for Branch model"""
     queryset = Branch.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -724,6 +732,8 @@ class BranchViewSet(BaseViewSet):
 class OutletViewSet(BaseViewSet):
     """ViewSet for Outlet model"""
     queryset = Outlet.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -733,6 +743,8 @@ class OutletViewSet(BaseViewSet):
 class UserOutletViewSet(BaseViewSet):
     """ViewSet for UserOutlet model"""
     queryset = UserOutlet.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -745,6 +757,8 @@ class UserOutletViewSet(BaseViewSet):
 class AirtelCombinedViewSet(BaseViewSet):
     """ViewSet for AirtelCombined model"""
     queryset = AirtelCombined.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -754,6 +768,8 @@ class AirtelCombinedViewSet(BaseViewSet):
 class CokeCombinedViewSet(BaseViewSet):
     """ViewSet for CokeCombined model"""
     queryset = CokeCombined.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -763,6 +779,8 @@ class CokeCombinedViewSet(BaseViewSet):
 class BaimsCombinedViewSet(BaseViewSet):
     """ViewSet for BaimsCombined model"""
     queryset = BaimsCombined.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -772,6 +790,8 @@ class BaimsCombinedViewSet(BaseViewSet):
 class KspcaCombinedViewSet(BaseViewSet):
     """ViewSet for KspcaCombined model"""
     queryset = KspcaCombined.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -781,6 +801,8 @@ class KspcaCombinedViewSet(BaseViewSet):
 class SaffCombinedViewSet(BaseViewSet):
     """ViewSet for SaffCombined model"""
     queryset = SaffCombined.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -790,6 +812,8 @@ class SaffCombinedViewSet(BaseViewSet):
 class RedbullOutletViewSet(BaseViewSet):
     """ViewSet for RedbullOutlet model"""
     queryset = RedbullOutlet.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -799,6 +823,8 @@ class RedbullOutletViewSet(BaseViewSet):
 class TotalKenyaViewSet(BaseViewSet):
     """ViewSet for TotalKenya model"""
     queryset = TotalKenya.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -808,6 +834,8 @@ class TotalKenyaViewSet(BaseViewSet):
 class AppDataViewSet(BaseViewSet):
     """ViewSet for AppData model"""
     queryset = AppData.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -817,6 +845,8 @@ class AppDataViewSet(BaseViewSet):
 class BaViewSet(BaseViewSet):
     """ViewSet for Ba model"""
     queryset = Ba.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -826,6 +856,8 @@ class BaViewSet(BaseViewSet):
 class BackendViewSet(BaseViewSet):
     """ViewSet for Backend model"""
     queryset = Backend.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -835,6 +867,8 @@ class BackendViewSet(BaseViewSet):
 class BaProjectViewSet(BaseViewSet):
     """ViewSet for BaProject model"""
     queryset = BaProject.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -844,6 +878,8 @@ class BaProjectViewSet(BaseViewSet):
 class ProjectAssocViewSet(BaseViewSet):
     """ViewSet for ProjectAssoc model"""
     queryset = ProjectAssoc.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -853,6 +889,8 @@ class ProjectAssocViewSet(BaseViewSet):
 class ContainersViewSet(BaseViewSet):
     """ViewSet for Containers model"""
     queryset = Containers.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -862,6 +900,8 @@ class ContainersViewSet(BaseViewSet):
 class ContainerOptionsViewSet(BaseViewSet):
     """ViewSet for ContainerOptions model"""
     queryset = ContainerOptions.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -871,6 +911,8 @@ class ContainerOptionsViewSet(BaseViewSet):
 class CoopViewSet(BaseViewSet):
     """ViewSet for Coop model"""
     queryset = Coop.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -880,6 +922,8 @@ class CoopViewSet(BaseViewSet):
 class Coop2ViewSet(BaseViewSet):
     """ViewSet for Coop2 model"""
     queryset = Coop2.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -889,6 +933,8 @@ class Coop2ViewSet(BaseViewSet):
 class FormSectionViewSet(BaseViewSet):
     """ViewSet for FormSection model"""
     queryset = FormSection.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -898,6 +944,8 @@ class FormSectionViewSet(BaseViewSet):
 class FormSubSectionViewSet(BaseViewSet):
     """ViewSet for FormSubSection model"""
     queryset = FormSubSection.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -907,6 +955,8 @@ class FormSubSectionViewSet(BaseViewSet):
 class InputGroupViewSet(BaseViewSet):
     """ViewSet for InputGroup model"""
     queryset = InputGroup.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -916,6 +966,8 @@ class InputGroupViewSet(BaseViewSet):
 class InputOptionsViewSet(BaseViewSet):
     """ViewSet for InputOptions model"""
     queryset = InputOptions.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_serializer_class(self):
         return InputOptionsListSerializer if self.action == 'list' else InputOptionsSerializer
