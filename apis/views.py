@@ -650,7 +650,7 @@ class AgencyViewSet(BaseViewSet):
         user = self.request.user
 
         if isinstance(user, UAdmin):
-            return user.agencies.all()
+            return Agency.objects.filter(admins=user)
 
         if isinstance(user, Ba):
             if user.company:
@@ -681,7 +681,7 @@ class ProjectViewSet(BaseViewSet):
             return Project.objects.filter(company__in=agency_ids)
 
         if isinstance(user, Ba):
-            project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+            project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
             return Project.objects.filter(id__in=project_ids)
 
         if hasattr(user, 'agency') and user.agency:
@@ -743,7 +743,7 @@ class ProjectHeadViewSet(BaseViewSet):
         
         allowed_project_ids = []
         if isinstance(user, Ba):
-            allowed_project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+            allowed_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
         elif hasattr(user, 'agency') and user.agency:
             allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
 
@@ -761,21 +761,10 @@ class BranchViewSet(BaseViewSet):
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_queryset(self):
-        user = self.request.user
-        
-        if isinstance(user, UAdmin):
-            agency_ids = user.agencies.values_list('id', flat=True)
-            return Branch.objects.filter(company_id__in=agency_ids)
-
-        if isinstance(user, Ba):
-            if user.company:
-                return Branch.objects.filter(company_id=user.company)
-            return Branch.objects.none()
-
-        if hasattr(user, 'agency') and user.agency:
-            return Branch.objects.filter(company=user.agency)
-            
-        return Branch.objects.none()
+        # TODO: The Branch model is not linked to a company/agency.
+        # This currently returns all branches to any authenticated user.
+        # A schema change is required to filter this securely.
+        return Branch.objects.all()
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -793,15 +782,19 @@ class OutletViewSet(BaseViewSet):
         
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
-            return Outlet.objects.filter(branch__company_id__in=agency_ids)
+            user_ids = User.objects.filter(agency_id__in=agency_ids).values_list('id', flat=True)
+            outlet_ids = UserOutlet.objects.filter(user__in=user_ids).values_list('outlet', flat=True)
+            return Outlet.objects.filter(id__in=outlet_ids)
 
-        if isinstance(user, Ba):
-            if user.company:
-                return Outlet.objects.filter(branch__company_id=user.company)
-            return Outlet.objects.none()
+        if isinstance(user, Ba) and user.company:
+            # Find users in the same agency as the BA
+            user_ids = User.objects.filter(agency_id=user.company).values_list('id', flat=True)
+            # Find outlets assigned to those users
+            outlet_ids = UserOutlet.objects.filter(user__in=user_ids).values_list('outlet', flat=True)
+            return Outlet.objects.filter(id__in=outlet_ids)
 
         if isinstance(user, User):
-             outlet_ids = UserOutlet.objects.filter(user=user).values_list('outlet_id', flat=True)
+             outlet_ids = UserOutlet.objects.filter(user=user.id).values_list('outlet', flat=True)
              return Outlet.objects.filter(id__in=outlet_ids)
         
         return Outlet.objects.none()
@@ -821,11 +814,13 @@ class UserOutletViewSet(BaseViewSet):
         user = self.request.user
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
-            return UserOutlet.objects.filter(outlet__branch__company_id__in=agency_ids)
+            user_ids = User.objects.filter(agency_id__in=agency_ids).values_list('id', flat=True)
+            return UserOutlet.objects.filter(user__in=user_ids)
         if isinstance(user, User):
-            return UserOutlet.objects.filter(user=user)
+            return UserOutlet.objects.filter(user=user.id)
         if isinstance(user, Ba) and user.company:
-            return UserOutlet.objects.filter(outlet__branch__company_id=user.company)
+            user_ids = User.objects.filter(agency_id=user.company).values_list('id', flat=True)
+            return UserOutlet.objects.filter(user__in=user_ids)
         return UserOutlet.objects.none()
 
     def get_serializer_class(self):
@@ -1024,7 +1019,7 @@ class BaProjectViewSet(BaseViewSet):
             ba_ids = Ba.objects.filter(company__in=agency_ids).values_list('id', flat=True)
             return BaProject.objects.filter(ba_id__in=ba_ids)
         if isinstance(user, Ba):
-            return BaProject.objects.filter(ba=user)
+            return BaProject.objects.filter(ba_id=user.id)
         return BaProject.objects.none()
 
     def get_serializer_class(self):
@@ -1047,7 +1042,7 @@ class ProjectAssocViewSet(BaseViewSet):
         
         allowed_project_ids = []
         if isinstance(user, Ba):
-            allowed_project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+            allowed_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
         elif hasattr(user, 'agency') and user.agency:
             allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
 
@@ -1117,7 +1112,7 @@ class FormSectionViewSet(BaseViewSet):
         
         allowed_project_ids = []
         if isinstance(user, Ba):
-            allowed_project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+            allowed_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
         elif hasattr(user, 'agency') and user.agency:
             allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
 
