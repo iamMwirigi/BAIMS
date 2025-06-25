@@ -646,6 +646,22 @@ class AgencyViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+
+        if isinstance(user, UAdmin):
+            return Agency.objects.all()
+
+        if isinstance(user, Ba):
+            if user.company:
+                return Agency.objects.filter(id=user.company)
+            return Agency.objects.none()
+
+        if hasattr(user, 'agency') and user.agency:
+            return Agency.objects.filter(id=user.agency.id)
+
+        return Agency.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return AgencyListSerializer
@@ -659,16 +675,21 @@ class ProjectViewSet(BaseViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # If the user is a BA, filter by their company
-        if hasattr(user, 'company') and user.company:
-            return Project.objects.filter(company=user.company)
-        # If the user has an 'agency' attribute (custom User), filter by agency
+        
+        # UAdmin sees all projects
+        if isinstance(user, UAdmin):
+            return Project.objects.all()
+
+        # BA sees projects they are assigned to via BaProject
+        if isinstance(user, Ba):
+            project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+            return Project.objects.filter(id__in=project_ids)
+
+        # Regular User sees projects for their agency
         if hasattr(user, 'agency') and user.agency:
             return Project.objects.filter(company=user.agency.id)
-        # If the user is a UAdmin, show all projects
-        if user.__class__.__name__ == 'UAdmin':
-            return Project.objects.all()
-        # Otherwise, return none
+            
+        # Default to no projects
         return Project.objects.none()
     
     def get_serializer_class(self):
@@ -727,6 +748,22 @@ class BranchViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        
+        if isinstance(user, UAdmin):
+            return Branch.objects.all()
+
+        if isinstance(user, Ba):
+            if user.company:
+                return Branch.objects.filter(company_id=user.company)
+            return Branch.objects.none()
+
+        if hasattr(user, 'agency') and user.agency:
+            return Branch.objects.filter(company=user.agency)
+            
+        return Branch.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return BranchListSerializer
@@ -738,6 +775,25 @@ class OutletViewSet(BaseViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
+    def get_queryset(self):
+        user = self.request.user
+        
+        if isinstance(user, UAdmin):
+            return Outlet.objects.all()
+
+        # BAs see outlets belonging to their company's branches
+        if isinstance(user, Ba):
+            if user.company:
+                return Outlet.objects.filter(branch__company_id=user.company)
+            return Outlet.objects.none()
+
+        # Regular Users see outlets assigned to them via UserOutlet
+        if isinstance(user, User):
+             outlet_ids = UserOutlet.objects.filter(user=user).values_list('outlet_id', flat=True)
+             return Outlet.objects.filter(id__in=outlet_ids)
+        
+        return Outlet.objects.none()
+
     def get_serializer_class(self):
         if self.action == 'list':
             return OutletListSerializer

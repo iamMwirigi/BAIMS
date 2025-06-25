@@ -1,11 +1,13 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import Q # models import is not needed here
+from django.db import models
 from django.core.exceptions import ObjectDoesNotExist
 from datetime import datetime, date
+from .authentication import TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 from .models import (
-    Ba, Agency, Project, FormSection, ProjectAssoc, InputOptions,
+    User, UAdmin, Ba, Agency, Project, FormSection, ProjectAssoc, InputOptions,
     AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
     BaProject
 )
@@ -15,6 +17,8 @@ class WideDataFilterView(APIView):
     """
     View for filtering data from wide tables (airtel_combined, coke_combined, etc.)
     """
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         """
@@ -153,6 +157,8 @@ class ProjectDataView(APIView):
     """
     View for getting project data with form structure and actual data records
     """
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, project_id):
         """
@@ -166,6 +172,7 @@ class ProjectDataView(APIView):
         - data_table: Specify which data table to use
         """
         try:
+            user = self.request.user
             # Get query parameters
             ba_id = request.query_params.get('ba_id')
             start_date = request.query_params.get('start_date')
@@ -173,13 +180,14 @@ class ProjectDataView(APIView):
             include_data = request.query_params.get('include_data', 'false').lower() == 'true'
             data_table = request.query_params.get('data_table')
             
-            # Get project
+            # Get project, ensuring the user has permission
             try:
-                project = Project.objects.select_related('company').get(id=project_id)
+                allowed_projects = self._get_allowed_projects(user)
+                project = allowed_projects.select_related('company').get(id=project_id)
             except Project.DoesNotExist:
                 return Response({
                     'response': 'error',
-                    'message': f'Project with ID {project_id} not found'
+                    'message': f'Project with ID {project_id} not found or you do not have permission to access it.'
                 }, status=status.HTTP_404_NOT_FOUND)
 
             # Get form sections
@@ -213,6 +221,24 @@ class ProjectDataView(APIView):
                 'response': 'error',
                 'message': f'An error occurred: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _get_allowed_projects(self, user):
+        """Returns a queryset of projects the user is allowed to see."""
+        # UAdmin sees all projects
+        if isinstance(user, UAdmin):
+            return Project.objects.all()
+
+        # BA sees projects they are assigned to via BaProject
+        if isinstance(user, Ba):
+            project_ids = BaProject.objects.filter(ba=user).values_list('project_id', flat=True)
+            return Project.objects.filter(id__in=project_ids)
+
+        # Regular User sees projects for their agency
+        if hasattr(user, 'agency') and user.agency:
+            return Project.objects.filter(company=user.agency.id)
+            
+        # Default to no projects
+        return Project.objects.none()
     
     def _get_form_data(self, form_section, ba_id, start_date, end_date, include_data, data_table):
         """Get form data with fields and optionally data records"""
