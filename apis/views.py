@@ -659,6 +659,9 @@ class ProjectViewSet(BaseViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # If the user is a BA, filter by their company
+        if hasattr(user, 'company') and user.company:
+            return Project.objects.filter(company=user.company)
         # If the user has an 'agency' attribute (custom User), filter by agency
         if hasattr(user, 'agency') and user.agency:
             return Project.objects.filter(company=user.agency.id)
