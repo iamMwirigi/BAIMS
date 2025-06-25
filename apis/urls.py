@@ -8,7 +8,7 @@ from .views import (
     BackendViewSet, BaProjectViewSet, ProjectAssocViewSet, ContainersViewSet,
     ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet, FormSectionViewSet,
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
-    AdminLoginView, UAdminViewSet, BaLoginView
+    AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView
 )
 from .rich_views import BaRichDataView, BaDataWithRecordsView
 from .data_views import WideDataFilterView, ProjectDataView
@@ -58,6 +58,8 @@ urlpatterns = [
     # Data filtering endpoints
     path('data/filter/', WideDataFilterView.as_view(), name='wide-data-filter'),
     path('data/project/<int:project_id>/', ProjectDataView.as_view(), name='project-data'),
+    
+    path('project-heads-with-projects/', ProjectHeadWithProjectsView.as_view(), name='project-heads-with-projects'),
     
     path('', include(router.urls)),
 ]
