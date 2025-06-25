@@ -901,6 +901,51 @@ class AirtelCombinedViewSet(BaseViewSet):
             return AirtelCombinedListSerializer
         return AirtelCombinedSerializer
 
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        user = request.user
+        # If project is not provided, try to infer it
+        if 'project' not in data or not data['project']:
+            project_id = None
+            if isinstance(user, Ba):
+                # Find projects assigned to this BA
+                project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+                if len(project_ids) == 1:
+                    project_id = project_ids[0]
+                elif len(project_ids) == 0:
+                    return Response({"success": False, "message": "No projects assigned to this BA. Please specify the project."}, status=400)
+                else:
+                    return Response({"success": False, "message": "Multiple projects assigned to this BA. Please specify the project."}, status=400)
+            elif isinstance(user, UAdmin):
+                agency_ids = user.agencies.values_list('id', flat=True)
+                project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
+                if len(project_ids) == 1:
+                    project_id = project_ids[0]
+                elif len(project_ids) == 0:
+                    return Response({"success": False, "message": "No projects found for this admin. Please specify the project."}, status=400)
+                else:
+                    return Response({"success": False, "message": "Multiple projects found for this admin. Please specify the project."}, status=400)
+            elif hasattr(user, 'agency') and user.agency:
+                project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+                if len(project_ids) == 1:
+                    project_id = project_ids[0]
+                elif len(project_ids) == 0:
+                    return Response({"success": False, "message": "No projects found for this user. Please specify the project."}, status=400)
+                else:
+                    return Response({"success": False, "message": "Multiple projects found for this user. Please specify the project."}, status=400)
+            else:
+                return Response({"success": False, "message": "Could not determine project from user context. Please specify the project."}, status=400)
+            data['project'] = project_id
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response({
+            'success': True,
+            'message': 'Item created successfully',
+            'data': {'item': serializer.data}
+        }, status=status.HTTP_201_CREATED, headers=headers)
+
 class CokeCombinedViewSet(BaseViewSet):
     """ViewSet for CokeCombined model"""
     queryset = CokeCombined.objects.all()
