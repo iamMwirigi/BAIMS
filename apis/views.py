@@ -1055,41 +1055,32 @@ class BaViewSet(BaseViewSet):
     def create(self, request, *args, **kwargs):
         """
         Create a new BA.
-        The company_id is inferred from the user token if possible.
+        The company is inferred from the user token, not from the request data.
         Automatically associate them with projects based on their company.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         user = request.user
-        company_id_from_request = request.data.get('company')
         company_id = None
 
         if isinstance(user, UAdmin):
             agencies = user.agencies.all()
             if agencies.count() == 0:
                 return Response({"success": False, "message": "Admin user is not associated with any company."}, status=status.HTTP_403_FORBIDDEN)
-            
-            if not company_id_from_request:
-                if agencies.count() == 1:
-                    company_id = agencies.first().id
-                else:
-                    return Response({"success": False, "message": "Admin with multiple companies must specify a 'company' ID."}, status=status.HTTP_400_BAD_REQUEST)
+            if agencies.count() == 1:
+                company_id = agencies.first().id
             else:
-                company_id = company_id_from_request
-
-            allowed_company_ids = agencies.values_list('id', flat=True)
-            if int(company_id) not in allowed_company_ids:
-                return Response({"success": False, "message": "You do not have permission for this company."}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"success": False, "message": "Admin with multiple companies must specify a company in the UI."}, status=status.HTTP_400_BAD_REQUEST)
 
         elif isinstance(user, Ba):
             if not user.company:
-                 return Response({"success": False, "message": "BA user is not associated with any company."}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"success": False, "message": "BA user is not associated with any company."}, status=status.HTTP_403_FORBIDDEN)
             company_id = user.company
         
         elif hasattr(user, 'agency') and user.agency:
             company_id = user.agency.id
-            
+        
         else:
             return Response({"success": False, "message": "Could not determine company from user token."}, status=status.HTTP_400_BAD_REQUEST)
 
