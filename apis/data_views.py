@@ -61,8 +61,17 @@ class WideDataFilterView(APIView):
             if ba_id:
                 queryset = queryset.filter(ba_id=ba_id)
             
+            # Only filter by project if the model has a 'project' or 'project_id' field
             if project_id:
-                queryset = queryset.filter(project=project_id)
+                available_fields = [f.name for f in model_class._meta.fields]
+                project_field = None
+                for candidate in ['project', 'project_id']:
+                    if candidate in available_fields:
+                        project_field = candidate
+                        break
+                if project_field:
+                    queryset = queryset.filter(**{project_field: project_id})
+                # If neither field exists, skip filtering by project_id
             
             if start_date:
                 try:
