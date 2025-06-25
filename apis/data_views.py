@@ -7,7 +7,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from datetime import datetime, date
 from .models import (
     Ba, Agency, Project, FormSection, ProjectAssoc, InputOptions,
-    AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined
+    AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
+    BaProject
 )
 
 
@@ -63,14 +64,22 @@ class WideDataFilterView(APIView):
             
             # Only filter by project if the model has a 'project' or 'project_id' field
             if project_id:
-                available_fields = [f.name for f in model_class._meta.fields]
-                project_field = None
-                for candidate in ['project', 'project_id']:
-                    if candidate in available_fields:
-                        project_field = candidate
-                        break
-                if project_field:
-                    queryset = queryset.filter(**{project_field: project_id})
+                # If the table is 'ba', skip filtering by project_id because Ba has no such field
+                if table_name == 'ba':
+                    # If you want to filter BAs by project, you would need to use the BaProject mapping table
+                    # Example:
+                    #   ba_ids = BaProject.objects.filter(project_id=project_id).values_list('ba_id', flat=True)
+                    #   queryset = queryset.filter(id__in=ba_ids)
+                    pass  # Do nothing for 'ba' table
+                else:
+                    available_fields = [f.name for f in model_class._meta.fields]
+                    project_field = None
+                    for candidate in ['project', 'project_id']:
+                        if candidate in available_fields:
+                            project_field = candidate
+                            break
+                    if project_field:
+                        queryset = queryset.filter(**{project_field: project_id})
                 # If neither field exists, skip filtering by project_id
             
             if start_date:
@@ -172,15 +181,15 @@ class ProjectDataView(APIView):
             
             # Get project
             try:
-                project = Project.objects.get(id=project_id)
-            except Project.DoesNotExist:
+                project = Project.objects.get(id=project_id)  # type: ignore[attr-defined]
+            except Project.DoesNotExist:  # type: ignore[attr-defined]
                 return Response({
                     'response': 'error',
                     'message': f'Project with ID {project_id} not found'
                 }, status=status.HTTP_404_NOT_FOUND)
             
             # Get form sections
-            form_sections = FormSection.objects.filter(project=project.id).order_by('rank')
+            form_sections = FormSection.objects.filter(project=project.id).order_by('rank')  # type: ignore[attr-defined]
             
             forms_data = []
             for form_section in form_sections:
@@ -193,9 +202,9 @@ class ProjectDataView(APIView):
             # Get agency name
             agency_name = "Unknown Agency"
             try:
-                agency = Agency.objects.get(id=project.company)
+                agency = Agency.objects.get(id=project.company)  # type: ignore[attr-defined]
                 agency_name = agency.name
-            except Agency.DoesNotExist:
+            except Agency.DoesNotExist:  # type: ignore[attr-defined]
                 pass
             
             response_data = {
@@ -218,7 +227,7 @@ class ProjectDataView(APIView):
     def _get_form_data(self, form_section, ba_id, start_date, end_date, include_data, data_table):
         """Get form data with fields and optionally data records"""
         # Get project associations (fields)
-        project_assocs = ProjectAssoc.objects.filter(project=form_section.project).order_by('rank')
+        project_assocs = ProjectAssoc.objects.filter(project=form_section.project).order_by('rank')  # type: ignore[attr-defined]
         
         fields_data = []
         for project_assoc in project_assocs:
@@ -245,7 +254,7 @@ class ProjectDataView(APIView):
     def _get_field_data(self, project_assoc, ba_id, start_date, end_date, include_data, data_table):
         """Get field data with options and optionally data values"""
         # Get input options
-        input_options = InputOptions.objects.filter(field_id=project_assoc.id)
+        input_options = InputOptions.objects.filter(field_id=project_assoc.id)  # type: ignore[attr-defined]
         options_data = []
         for option in input_options:
             options_data.append({

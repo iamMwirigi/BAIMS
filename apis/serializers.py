@@ -18,7 +18,7 @@ class AgencySerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new agency"""
-        return Agency.objects.create(**validated_data)
+        return Agency.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing agency"""
@@ -40,7 +40,7 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model"""
     agency = AgencySerializer(read_only=True)
     agency_id = serializers.PrimaryKeyRelatedField(
-        queryset=Agency.objects.all(), source='agency', write_only=True, allow_null=True
+        queryset=Agency.objects.all(), source='agency', write_only=True, allow_null=True  # type: ignore[attr-defined]
     )
 
     class Meta:
@@ -54,7 +54,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new user"""
-        return User.objects.create(**validated_data)
+        return User.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing user"""
@@ -93,7 +93,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new project"""
-        return Project.objects.create(**validated_data)
+        return Project.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing project"""
@@ -120,7 +120,7 @@ class ProjectHeadSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new project head"""
-        return ProjectHead.objects.create(**validated_data)
+        return ProjectHead.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing project head"""
@@ -147,7 +147,7 @@ class BranchSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new branch"""
-        return Branch.objects.create(**validated_data)
+        return Branch.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing branch"""
@@ -187,7 +187,7 @@ class OutletSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new outlet"""
-        return Outlet.objects.create(**validated_data)
+        return Outlet.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing outlet"""
@@ -219,7 +219,7 @@ class UserOutletSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new user outlet relationship"""
-        return UserOutlet.objects.create(**validated_data)
+        return UserOutlet.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing user outlet relationship"""
@@ -246,7 +246,7 @@ class DataCollectionBaseSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new data collection record"""
-        return self.Meta.model.objects.create(**validated_data)
+        return self.Meta.model.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing data collection record"""
@@ -346,7 +346,7 @@ class RedbullOutletSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new redbull outlet"""
-        return RedbullOutlet.objects.create(**validated_data)
+        return RedbullOutlet.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing redbull outlet"""
@@ -373,7 +373,7 @@ class TotalKenyaSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new total kenya record"""
-        return TotalKenya.objects.create(**validated_data)
+        return TotalKenya.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing total kenya record"""
@@ -400,7 +400,7 @@ class AppDataSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new app data record"""
-        return AppData.objects.create(**validated_data)
+        return AppData.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing app data record"""
@@ -428,7 +428,7 @@ class BaSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create a new BA record"""
         print('Validated data for Ba:', validated_data, file=sys.stderr)
-        return Ba.objects.create(**validated_data)
+        return Ba.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing BA record"""
@@ -455,7 +455,7 @@ class BackendSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new backend record"""
-        return Backend.objects.create(**validated_data)
+        return Backend.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing backend record"""
@@ -482,7 +482,7 @@ class BaProjectSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new BA project record"""
-        return BaProject.objects.create(**validated_data)
+        return BaProject.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing BA project record"""
@@ -513,7 +513,7 @@ class ProjectAssocSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new project association record"""
-        return ProjectAssoc.objects.create(**validated_data)
+        return ProjectAssoc.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing project association record"""
@@ -544,7 +544,7 @@ class ContainersSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new container record"""
-        return Containers.objects.create(**validated_data)
+        return Containers.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing container record"""
@@ -571,7 +571,7 @@ class ContainerOptionsSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new container option record"""
-        return ContainerOptions.objects.create(**validated_data)
+        return ContainerOptions.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing container option record"""
@@ -598,7 +598,7 @@ class CoopSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new coop record"""
-        return Coop.objects.create(**validated_data)
+        return Coop.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing coop record"""
@@ -625,7 +625,7 @@ class Coop2Serializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new coop2 record"""
-        return Coop2.objects.create(**validated_data)
+        return Coop2.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing coop2 record"""
@@ -652,7 +652,7 @@ class FormSectionSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new form section record"""
-        return FormSection.objects.create(**validated_data)
+        return FormSection.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing form section record"""
@@ -679,7 +679,7 @@ class FormSubSectionSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new form sub section record"""
-        return FormSubSection.objects.create(**validated_data)
+        return FormSubSection.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing form sub section record"""
@@ -706,7 +706,7 @@ class InputGroupSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new input group record"""
-        return InputGroup.objects.create(**validated_data)
+        return InputGroup.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing input group record"""
@@ -733,7 +733,7 @@ class InputOptionsSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new input option record"""
-        return InputOptions.objects.create(**validated_data)
+        return InputOptions.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing input option record"""
@@ -747,7 +747,7 @@ class InputOptionsListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InputOptions
-        fields = ['id'] 
+        fields = ['id']
 
 
 # UAdmin Serializer
@@ -763,7 +763,7 @@ class UAdminSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new admin user"""
-        return UAdmin.objects.create(**validated_data)
+        return UAdmin.objects.create(**validated_data)  # type: ignore[attr-defined]
     
     def update(self, instance, validated_data):
         """Update an existing admin user"""
@@ -805,7 +805,7 @@ class ProjectAssocNestedSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Custom representation to match the expected format"""
         # Get input options for this field
-        input_options = InputOptions.objects.filter(field_id=instance.id)
+        input_options = InputOptions.objects.filter(field_id=instance.id)  # type: ignore[attr-defined]
         options_data = InputOptionsNestedSerializer(input_options, many=True).data
         
         return {
@@ -830,7 +830,7 @@ class FormSectionNestedSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Custom representation to match the expected format"""
         # Get project associations for this section
-        project_assocs = ProjectAssoc.objects.filter(project=instance.project).order_by('rank')
+        project_assocs = ProjectAssoc.objects.filter(project=instance.project).order_by('rank')  # type: ignore[attr-defined]
         fields_data = ProjectAssocNestedSerializer(project_assocs, many=True).data
         
         return {
@@ -859,7 +859,7 @@ class ProjectNestedSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Custom representation to match the expected format"""
         # Get form sections for this project
-        form_sections = FormSection.objects.filter(project=instance.id).order_by('rank')
+        form_sections = FormSection.objects.filter(project=instance.id).order_by('rank')  # type: ignore[attr-defined]
         forms_data = FormSectionNestedSerializer(form_sections, many=True).data
         
         return {
@@ -885,13 +885,13 @@ class BaNestedSerializer(serializers.ModelSerializer):
         # Get agency name
         agency_name = "Unknown Agency"
         try:
-            agency = Agency.objects.get(id=instance.company)
+            agency = Agency.objects.get(id=instance.company)  # type: ignore[attr-defined]
             agency_name = agency.name
-        except Agency.DoesNotExist:
+        except Agency.DoesNotExist:  # type: ignore[attr-defined]
             pass
         
         # Get projects for this BA's company
-        projects = Project.objects.filter(company=instance.company, status=1).order_by('rank')
+        projects = Project.objects.filter(company=instance.company, status=1).order_by('rank')  # type: ignore[attr-defined]
         projects_data = ProjectNestedSerializer(projects, many=True).data
         
         return {
