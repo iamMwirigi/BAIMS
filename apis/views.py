@@ -1802,7 +1802,7 @@ class ProjectHeadWithProjectsView(APIView):
 
 class ProjectFormFieldsView(APIView):
     permission_classes = [IsAuthenticated]
-    def get(self, request):
+    def get(self, request, project_id=None):
         user = request.user
         project_ids = []
         # Admin: all projects in their agencies
@@ -1819,6 +1819,18 @@ class ProjectFormFieldsView(APIView):
         # If no projects found, return empty
         if not project_ids:
             return Response({'form_fields': []})
+        # Support both path and query param
+        pid = project_id
+        if pid is None:
+            pid = request.query_params.get('project_id')
+        if pid is not None:
+            try:
+                pid = int(pid)
+            except ValueError:
+                return Response({'form_fields': [], 'error': 'Invalid project_id'}, status=400)
+            if pid not in project_ids:
+                return Response({'form_fields': [], 'error': 'You do not have access to this project'}, status=403)
+            project_ids = [pid]
         # Get all form fields for these projects
         form_fields = ProjectAssoc.objects.filter(project__in=project_ids).order_by('project', 'rank')
         serializer = ProjectAssocSerializer(form_fields, many=True)
