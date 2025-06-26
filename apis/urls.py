@@ -63,6 +63,7 @@ urlpatterns = [
     path('project-heads-with-forms/', ProjectHeadWithProjectsView.as_view(), name='project-heads-with-forms'),
     path('project-form-fields/', ProjectFormFieldsView.as_view(), name='project-form-fields'),
     path('project-form-fields/<int:project_id>/', ProjectFormFieldsView.as_view(), name='project-form-fields-by-id'),
+    path('project-form-fields/form-field/<int:form_field_id>/', ProjectFormFieldsView.as_view(), name='project-form-field-detail'),
     
     path('', include(router.urls)),
 ]

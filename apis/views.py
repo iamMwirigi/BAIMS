@@ -1835,3 +1835,101 @@ class ProjectFormFieldsView(APIView):
         form_fields = ProjectAssoc.objects.filter(project__in=project_ids).order_by('project', 'rank')
         serializer = ProjectAssocSerializer(form_fields, many=True)
         return Response({'form_fields': serializer.data})
+
+    def post(self, request, project_id=None):
+        user = request.user
+        data = request.data.copy()
+        project_ids = []
+        # Admin: all projects in their agencies
+        if hasattr(user, 'agencies'):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
+        # BA: projects assigned to them
+        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'):
+            from .models import BaProject
+            project_ids = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
+        # Agency user: projects for their agency
+        elif hasattr(user, 'agency') and user.agency:
+            project_ids = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
+        # If no projects found, return error
+        if not project_ids:
+            return Response({'success': False, 'message': 'No accessible projects found.'}, status=403)
+        # Determine project to use
+        pid = project_id
+        if pid is None:
+            pid = request.query_params.get('project_id')
+        if pid is None:
+            pid = data.get('project')
+        if pid is not None:
+            try:
+                pid = int(pid)
+            except ValueError:
+                return Response({'success': False, 'message': 'Invalid project_id.'}, status=400)
+            if pid not in project_ids:
+                return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+        else:
+            # If only one project, use it
+            if len(project_ids) == 1:
+                pid = project_ids[0]
+            else:
+                return Response({'success': False, 'message': 'Multiple projects available. Please specify project.'}, status=400)
+        data['project'] = pid
+        serializer = ProjectAssocSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'message': 'Form field created successfully.', 'form_field': serializer.data}, status=201)
+        return Response({'success': False, 'message': 'Invalid data.', 'errors': serializer.errors}, status=400)
+
+    def put(self, request, form_field_id=None):
+        user = request.user
+        if form_field_id is None:
+            return Response({'success': False, 'message': 'Form field ID is required.'}, status=400)
+        try:
+            form_field = ProjectAssoc.objects.get(id=form_field_id)
+        except ProjectAssoc.DoesNotExist:
+            return Response({'success': False, 'message': 'Form field not found.'}, status=404)
+        # Check project access
+        project_id = form_field.project
+        allowed_projects = []
+        if hasattr(user, 'agencies'):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            allowed_projects = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
+        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'):
+            from .models import BaProject
+            allowed_projects = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
+        elif hasattr(user, 'agency') and user.agency:
+            allowed_projects = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
+        if project_id not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+        serializer = ProjectAssocSerializer(form_field, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'message': 'Form field updated successfully.', 'form_field': serializer.data})
+        return Response({'success': False, 'message': 'Invalid data.', 'errors': serializer.errors}, status=400)
+
+    def patch(self, request, form_field_id=None):
+        return self.put(request, form_field_id)
+
+    def delete(self, request, form_field_id=None):
+        user = request.user
+        if form_field_id is None:
+            return Response({'success': False, 'message': 'Form field ID is required.'}, status=400)
+        try:
+            form_field = ProjectAssoc.objects.get(id=form_field_id)
+        except ProjectAssoc.DoesNotExist:
+            return Response({'success': False, 'message': 'Form field not found.'}, status=404)
+        # Check project access
+        project_id = form_field.project
+        allowed_projects = []
+        if hasattr(user, 'agencies'):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            allowed_projects = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
+        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'):
+            from .models import BaProject
+            allowed_projects = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
+        elif hasattr(user, 'agency') and user.agency:
+            allowed_projects = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
+        if project_id not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+        form_field.delete()
+        return Response({'success': True, 'message': 'Form field deleted successfully.'})
