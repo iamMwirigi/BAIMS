@@ -8,7 +8,8 @@ from .views import (
     BackendViewSet, BaProjectViewSet, ProjectAssocViewSet, ContainersViewSet,
     ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet, FormSectionViewSet,
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
-    AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView
+    AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView,
+    ProjectFormFieldsView
 )
 from .rich_views import BaRichDataView, BaDataWithRecordsView
 from .data_views import WideDataFilterView, ProjectDataView
@@ -59,7 +60,8 @@ urlpatterns = [
     path('data/filter/', WideDataFilterView.as_view(), name='wide-data-filter'),
     path('data/project/<int:project_id>/', ProjectDataView.as_view(), name='project-data'),
     
-    path('project-heads-with-projects/', ProjectHeadWithProjectsView.as_view(), name='project-heads-with-projects'),
+    path('project-heads-with-forms/', ProjectHeadWithProjectsView.as_view(), name='project-heads-with-forms'),
+    path('project-form-fields/<int:project_id>/', ProjectFormFieldsView.as_view(), name='project-form-fields'),
     
     path('', include(router.urls)),
 ]

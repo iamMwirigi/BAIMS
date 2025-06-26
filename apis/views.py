@@ -1687,11 +1687,8 @@ class ProjectHeadWithProjectsView(APIView):
                     'company': project.company,
                     'image_required': project.image_required,
                 }
-                form_fields = ProjectAssoc.objects.filter(project=project.id).order_by('rank')
-                form_fields_serialized = ProjectAssocSerializer(form_fields, many=True).data
                 project_list.append({
                     'form_details': form_details,
-                    'form_fields': form_fields_serialized
                 })
             data.append({
                 'project_head': {
@@ -1802,3 +1799,10 @@ class ProjectHeadWithProjectsView(APIView):
             return Response({'success': False, 'message': 'Only admins and BAs can delete ProjectHeads.'}, status=403)
         project_head.delete()
         return Response({'success': True, 'message': 'ProjectHead deleted successfully.'})
+
+class ProjectFormFieldsView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, project_id):
+        form_fields = ProjectAssoc.objects.filter(project=project_id).order_by('rank')
+        serializer = ProjectAssocSerializer(form_fields, many=True)
+        return Response({'form_fields': serializer.data})
