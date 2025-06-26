@@ -2000,6 +2000,89 @@ class UnifiedFormFieldView(APIView):
         form_field.delete()
         return Response({'success': True, 'message': 'Form field deleted successfully.'})
 
+class UnifiedFormSectionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get_allowed_projects_for_user(self, user):
+        project_ids = []
+        if hasattr(user, 'agencies'): # UAdmin
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
+        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'): # BA
+            from .models import BaProject
+            project_ids = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
+        elif hasattr(user, 'agency') and user.agency: # Regular User
+            project_ids = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
+        return project_ids
+
+    def get(self, request, id):
+        """GET all form sections for a given form_id (project_id)"""
+        user = request.user
+        form_id = id
+        
+        allowed_projects = self._get_allowed_projects_for_user(user)
+        if form_id not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+        
+        form_sections = FormSection.objects.filter(project=form_id).order_by('rank')
+        serializer = FormSectionListSerializer(form_sections, many=True)
+        return Response({'success': True, 'form_sections': serializer.data})
+
+    def post(self, request, id):
+        """POST to create a new form section for a given form_id (project_id)"""
+        user = request.user
+        form_id = id
+
+        allowed_projects = self._get_allowed_projects_for_user(user)
+        if form_id not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+
+        data = request.data.copy()
+        data['project'] = form_id
+        
+        serializer = FormSectionSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'message': 'Form section created successfully.', 'form_section': serializer.data}, status=201)
+        return Response({'success': False, 'message': 'Invalid data.', 'errors': serializer.errors}, status=400)
+
+    def put(self, request, id):
+        """PUT to update a form section by its form_section_id"""
+        user = request.user
+        section_id = id
+        
+        try:
+            form_section = FormSection.objects.get(id=section_id)
+        except FormSection.DoesNotExist:
+            return Response({'success': False, 'message': 'Form section not found.'}, status=404)
+
+        allowed_projects = self._get_allowed_projects_for_user(user)
+        if form_section.project.id not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have permission to modify this form section.'}, status=403)
+            
+        serializer = FormSectionSerializer(form_section, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'message': 'Form section updated successfully.', 'form_section': serializer.data})
+        return Response({'success': False, 'message': 'Invalid data.', 'errors': serializer.errors}, status=400)
+        
+    def delete(self, request, id):
+        """DELETE a form section by its form_section_id"""
+        user = request.user
+        section_id = id
+
+        try:
+            form_section = FormSection.objects.get(id=section_id)
+        except FormSection.DoesNotExist:
+            return Response({'success': False, 'message': 'Form section not found.'}, status=404)
+
+        allowed_projects = self._get_allowed_projects_for_user(user)
+        if form_section.project.id not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have permission to delete this form section.'}, status=403)
+            
+        form_section.delete()
+        return Response({'success': True, 'message': 'Form section deleted successfully.'})
+
 class UnifiedFormView(APIView):
     permission_classes = [IsAuthenticated]
 

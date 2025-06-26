@@ -6,10 +6,10 @@ from .views import (
     BaimsCombinedViewSet, KspcaCombinedViewSet, SaffCombinedViewSet,
     RedbullOutletViewSet, TotalKenyaViewSet, AppDataViewSet, BaViewSet,
     BackendViewSet, BaProjectViewSet, ProjectAssocViewSet, ContainersViewSet,
-    ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet, FormSectionViewSet,
+    ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet,
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
     AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView,
-    UnifiedFormView, UnifiedFormFieldView
+    UnifiedFormView, UnifiedFormFieldView, UnifiedFormSectionView
 )
 from .rich_views import BaRichDataView, BaDataWithRecordsView
 from .data_views import WideDataFilterView, ProjectDataView
@@ -40,7 +40,6 @@ router.register(r'data/containers', ContainersViewSet, basename='containers')
 router.register(r'data/container-options', ContainerOptionsViewSet, basename='containeroptions')
 router.register(r'data/coop', CoopViewSet, basename='coop')
 router.register(r'data/coop2', Coop2ViewSet, basename='coop2')
-router.register(r'data/form-section', FormSectionViewSet, basename='formsection')
 router.register(r'data/form-sub-section', FormSubSectionViewSet, basename='formsubsection')
 router.register(r'data/input-group', InputGroupViewSet, basename='inputgroup')
 router.register(r'data/input-options', InputOptionsViewSet, basename='inputoptions')
@@ -65,6 +64,7 @@ urlpatterns = [
     path('project-heads-with-forms/<int:pk>/', ProjectHeadWithProjectsView.as_view(), name='project-head-with-forms-detail'),
     path('project-form-fields/<int:id>/', UnifiedFormFieldView.as_view(), name='unified-form-field-view'),
     
+    path('form-sections/<int:id>/', UnifiedFormSectionView.as_view(), name='unified-form-section-view'),
     path('forms/<int:id>/', UnifiedFormView.as_view(), name='unified-form-view'),
     
     path('', include(router.urls)),
