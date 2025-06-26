@@ -1,6 +1,6 @@
 from django.db import models
+from django.db.models import JSONField
 import secrets
-from django.contrib.postgres.fields import JSONField  # If using Postgres, otherwise use models.JSONField for Django 3.1+
 
 # Create your models here.
 
