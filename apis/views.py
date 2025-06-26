@@ -2138,3 +2138,41 @@ class UnifiedFormView(APIView):
             return Response({'success': True, 'message': 'Form deleted successfully.'}, status=200)
         except Project.DoesNotExist:
             return Response({'success': False, 'message': 'Form not found.'}, status=404)
+
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
+
+    def get(self, request):
+        user = request.user
+        # Default values
+        name = None
+        profile_picture = None
+        user_type = None
+        user_id = None
+
+        # UAdmin
+        if hasattr(user, 'u_name'):
+            name = user.u_name
+            user_type = 'admin'
+            user_id = user.id
+            # profile_picture = getattr(user, 'profile_picture', None)  # Add if you add this field later
+        # BA
+        elif hasattr(user, 'phone'):
+            name = user.name
+            user_type = 'ba'
+            user_id = user.id
+            # profile_picture = getattr(user, 'profile_picture', None)
+        # Regular User
+        elif hasattr(user, 'username'):
+            name = user.name
+            user_type = 'user'
+            user_id = user.id
+            # profile_picture = getattr(user, 'profile_picture', None)
+
+        return Response({
+            'id': user_id,
+            'name': name,
+            'user_type': user_type,
+            'profile_picture': profile_picture
+        })
