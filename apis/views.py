@@ -721,11 +721,10 @@ class ProjectViewSet(BaseViewSet):
             'data': {'item': serializer.data}
         }, status=status.HTTP_201_CREATED, headers=headers)
 
-    @action(detail=True, methods=['get'], url_path='view-form')
-    def view_form(self, request, pk=None):
+    def retrieve(self, request, *args, **kwargs):
         """
         Get a specific project (form) and all its associated fields.
-        This replicates the functionality of VIEW-FORM.php.
+        This now matches the structure of the view_form action.
         """
         try:
             project = self.get_object()
@@ -745,7 +744,7 @@ class ProjectViewSet(BaseViewSet):
         except ObjectDoesNotExist:
             return Response({
                 'success': False,
-                'message': f"Project with ID '{pk}' not found.",
+                'message': f"Project with ID '{kwargs.get('pk')}' not found.",
                 'data': {}
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -1660,7 +1659,7 @@ class ProjectHeadWithProjectsView(APIView):
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request, pk=None):
         user = request.user
         # Allow for UAdmin and Ba
         if isinstance(user, UAdmin):
@@ -1669,7 +1668,17 @@ class ProjectHeadWithProjectsView(APIView):
             agency_ids = [user.company] if user.company else []
         else:
             return Response({'detail': 'Only admins and BAs can access this endpoint.'}, status=403)
+        
         project_heads = ProjectHead.objects.filter(company__in=agency_ids)
+        
+        if pk is not None:
+            project_heads = project_heads.filter(id=pk)
+            if not project_heads.exists():
+                return Response({
+                    'success': False,
+                    'message': f'ProjectHead with ID {pk} not found or you do not have permission to view it.'
+                }, status=status.HTTP_404_NOT_FOUND)
+
         data = []
         for head in project_heads:
             projects = Project.objects.filter(company=head.company)
