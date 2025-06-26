@@ -49,6 +49,7 @@ from django.contrib.auth.hashers import check_password
 from rest_framework.authtoken.models import Token
 from .authentication import TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication
 from datetime import date, timedelta
+from apis.nested_serializers import ProjectAssocNestedSerializer
 
 # Custom exception handler for better error messages
 def custom_exception_handler(exc, context):
@@ -1816,7 +1817,7 @@ class ProjectFormFieldsView(APIView):
             project_ids = [pid]
         # Get all form fields for these projects
         form_fields = ProjectAssoc.objects.filter(project__in=project_ids).order_by('project', 'rank')
-        serializer = ProjectAssocSerializer(form_fields, many=True)
+        serializer = ProjectAssocNestedSerializer(form_fields, many=True)
         return Response({'form_fields': serializer.data})
 
     def post(self, request, project_id=None):
@@ -1942,7 +1943,7 @@ class UnifiedFormFieldView(APIView):
             return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
         
         form_fields = ProjectAssoc.objects.filter(project=form_id).order_by('rank')
-        serializer = ProjectAssocSerializer(form_fields, many=True)
+        serializer = ProjectAssocNestedSerializer(form_fields, many=True)
         return Response({'success': True, 'form_fields': serializer.data})
 
     def post(self, request, id):
