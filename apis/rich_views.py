@@ -67,7 +67,7 @@ class BaRichDataView(APIView):
             for ba in queryset:
                 ba.projects = self._get_filtered_projects(ba, start_date, end_date, project_id, form_id)
                 if ba.projects.exists(): # Only include BA if they have projects after filtering
-                    serializer = BaNestedSerializer(filtered_ba)
+                    serializer = BaNestedSerializer(ba)
                     bas.append(serializer.data)
             
             return Response({
@@ -221,57 +221,38 @@ class BaDataWithRecordsView(APIView):
         
         fields_data = []
         for project_assoc in project_assocs:
-            field_data = self._get_field_data(project_assoc, ba, start_date, end_date, include_data)
+            field_data = self._get_field_data(project_assoc)
             if field_data:
                 fields_data.append(field_data)
         
         return {
-            "0": form_section.title,
             "form_title": form_section.title,
-            "1": str(form_section.id),
             "form_id": str(form_section.id),
-            "2": str(form_section.rank),
             "form_rank": str(form_section.rank),
-            "3": "off",
-            "location_status": "off",
-            "4": "NO",
-            "image_required": "NO",
+            "location_status": form_section.project.location_status,
+            "image_required": form_section.project.image_required,
             "form_fields": fields_data
         }
     
-    def _get_field_data(self, project_assoc, ba, start_date, end_date, include_data):
+    def _get_field_data(self, project_assoc):
         """
         Get field data with options and optionally data values
         """
         # Get input options
-        input_options = InputOptions.objects.filter(field=project_assoc).order_by('rank')
+        input_options = InputOptions.objects.filter(field_id=project_assoc.id).order_by('rank')
         options_data = []
         for option in input_options:
             options_data.append({
-                "0": option.title,
                 "option_text": option.title,
-                "1": str(option.rank),
                 "option_rank": str(option.rank)
             })
         
-        field_data = {
+        return {
             "input_title": project_assoc.report_display_name,
             "field_id": project_assoc.column_name,
             "input_rank": str(project_assoc.rank),
-            "field_type": project_assoc.field_type or "input",
+            "field_type": project_assoc.field_type,
             "multiple_choice": str(project_assoc.multiple).lower(),
             "options_available": str(project_assoc.options_available),
             "field_input_options": options_data
-        }
-        
-        # If include_data is True, you could add actual data values here
-        # This would require querying the wide data tables (airtel_combined, etc.)
-        if include_data:
-            # Determine the data table based on the project's holding_table or a default
-            data_table_name = project_assoc.project.top_table # Assuming top_table holds the data table name
-            if data_table_name:
-                field_data['data_values'] = self._get_field_data_values(
-                    project_assoc.column_name, ba.id, start_date, end_date, data_table_name
-                )
-        
-        return field_data 
+        } 
