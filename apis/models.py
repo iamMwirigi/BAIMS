@@ -437,7 +437,6 @@ class InputOptions(models.Model):
     field_id = models.IntegerField()
     title = models.TextField()
     rank = models.IntegerField()
-    next_section = models.IntegerField()
     value = models.IntegerField()
     container_id = models.IntegerField()
     
