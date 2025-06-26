@@ -2207,6 +2207,17 @@ class SubmitFormView(APIView):
         if not holding_table:
             return Response({'success': False, 'message': 'No holding_table defined for this agency.'}, status=400)
 
+        # Check if holding_table exists in the DB
+        with connection.cursor() as cursor:
+            cursor.execute("SHOW TABLES;")
+            existing_tables = set(row[0] for row in cursor.fetchall())
+        if holding_table not in existing_tables:
+            return Response({
+                'success': False,
+                'message': f"Table '{holding_table}' does not exist in the database.",
+                'valid_tables': list(existing_tables)
+            }, status=400)
+
         # Validate that all answer keys are valid columns in the holding_table
         with connection.cursor() as cursor:
             cursor.execute(f"DESCRIBE `{holding_table}`;")
