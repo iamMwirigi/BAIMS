@@ -437,9 +437,6 @@ class InputOptions(models.Model):
     field_id = models.IntegerField()
     title = models.TextField()
     rank = models.IntegerField()
-    value = models.IntegerField()
-    container_id = models.IntegerField()
-    
     class Meta:
         db_table = 'input_options'
         verbose_name = 'Input Option'
