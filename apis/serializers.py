@@ -652,7 +652,7 @@ class FormSectionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = FormSection
-        fields = ['id']
+        fields = ['id', 'project', 'title', 'rank']
     
     def create(self, validated_data):
         """Create a new form section record"""
