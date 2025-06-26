@@ -6,6 +6,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from datetime import datetime
 from .models import Ba, Agency, Project, FormSection, ProjectAssoc, InputOptions
 from .nested_serializers import BaNestedSerializer
+from .models import UAdmin
 
 
 class BaRichDataView(APIView):
@@ -143,15 +144,32 @@ class BaDataWithRecordsView(APIView):
             
             # Get BA
             try:
-                ba = Ba.objects.select_related('company').get(id=ba_id) # Optimize query
+                ba = Ba.objects.get(id=ba_id)
             except Ba.DoesNotExist:
                 return Response({
                     'response': 'error',
                     'message': f'BA with ID {ba_id} not found'
                 }, status=status.HTTP_404_NOT_FOUND)
             
+            # === Permission Check ===
+            user = request.user
+            if isinstance(user, UAdmin):
+                if ba.company not in user.agencies.values_list('id', flat=True):
+                    return Response({'response': 'error', 'message': 'Forbidden: You do not have permission to access this BA.'}, status=status.HTTP_403_FORBIDDEN)
+            elif isinstance(user, Ba):
+                if user.id != ba.id:
+                    return Response({'response': 'error', 'message': 'Forbidden: You can only access your own data.'}, status=status.HTTP_403_FORBIDDEN)
+            elif hasattr(user, 'agency') and user.agency:
+                if user.agency.id != ba.company:
+                    return Response({'response': 'error', 'message': 'Forbidden: This BA is not in your agency.'}, status=status.HTTP_403_FORBIDDEN)
+            # ========================
+
             # Get agency name
-            agency_name = ba.company.name if ba.company else "Unknown Agency"
+            try:
+                agency = Agency.objects.get(id=ba.company)
+                agency_name = agency.name
+            except Agency.DoesNotExist:
+                agency_name = "Unknown Agency"
             
             # Get projects
             projects = Project.objects.filter(company=ba.company, status=True).order_by('rank') \
