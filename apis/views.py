@@ -826,6 +826,35 @@ class ProjectHeadViewSet(BaseViewSet):
             'data': self.get_serializer(project_head).data
         }, status=status.HTTP_201_CREATED)
 
+    @action(methods=['put', 'patch'], detail=False, url_path='update')
+    def update_by_body(self, request):
+        """
+        Update a ProjectHead by ID provided in the request body (no ID in URL).
+        """
+        user = request.user
+        project_head_id = request.data.get('id')
+        if not project_head_id:
+            return Response({'success': False, 'message': 'ProjectHead ID is required.'}, status=400)
+        try:
+            project_head = ProjectHead.objects.get(id=project_head_id)
+        except ProjectHead.DoesNotExist:
+            return Response({'success': False, 'message': 'ProjectHead not found.'}, status=404)
+        # Permission check
+        if isinstance(user, UAdmin):
+            allowed_agency_ids = user.agencies.values_list('id', flat=True)
+            if project_head.company not in allowed_agency_ids:
+                return Response({'success': False, 'message': 'You do not have permission to update this ProjectHead.'}, status=403)
+        elif isinstance(user, Ba):
+            if user.company != project_head.company:
+                return Response({'success': False, 'message': 'You do not have permission to update this ProjectHead.'}, status=403)
+        else:
+            return Response({'success': False, 'message': 'Only admins and BAs can update ProjectHeads.'}, status=403)
+        serializer = ProjectHeadSerializer(project_head, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'message': 'ProjectHead updated successfully.', 'data': serializer.data})
+        return Response({'success': False, 'message': 'Invalid data.', 'errors': serializer.errors}, status=400)
+
 class BranchViewSet(BaseViewSet):
     """ViewSet for Branch model"""
     queryset = Branch.objects.all()
