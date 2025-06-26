@@ -9,7 +9,7 @@ from .views import (
     ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet, FormSectionViewSet,
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
     AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView,
-    ProjectFormFieldsView, UnifiedFormView
+    UnifiedFormView, UnifiedFormFieldView
 )
 from .rich_views import BaRichDataView, BaDataWithRecordsView
 from .data_views import WideDataFilterView, ProjectDataView
@@ -63,9 +63,7 @@ urlpatterns = [
     
     path('project-heads-with-forms/', ProjectHeadWithProjectsView.as_view(), name='project-heads-with-forms'),
     path('project-heads-with-forms/<int:pk>/', ProjectHeadWithProjectsView.as_view(), name='project-head-with-forms-detail'),
-    path('project-form-fields/', ProjectFormFieldsView.as_view(), name='project-form-fields'),
-    path('project-form-fields/<int:project_id>/', ProjectFormFieldsView.as_view(), name='project-form-fields-by-id'),
-    path('project-form-fields/form-field/<int:form_field_id>/', ProjectFormFieldsView.as_view(), name='project-form-field-detail'),
+    path('project-form-fields/<int:id>/', UnifiedFormFieldView.as_view(), name='unified-form-field-view'),
     
     path('forms/<int:id>/', UnifiedFormView.as_view(), name='unified-form-view'),
     

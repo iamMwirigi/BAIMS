@@ -1917,119 +1917,86 @@ class ProjectFormFieldsView(APIView):
         form_field.delete()
         return Response({'success': True, 'message': 'Form field deleted successfully.'})
 
-class FormFieldByFormView(APIView):
+class UnifiedFormFieldView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, form_id):
-        """Get a specific form (project) and all its fields."""
+    def _get_allowed_projects_for_user(self, user):
+        project_ids = []
+        if hasattr(user, 'agencies'): # UAdmin
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
+        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'): # BA
+            from .models import BaProject
+            project_ids = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
+        elif hasattr(user, 'agency') and user.agency: # Regular User
+            project_ids = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
+        return project_ids
+
+    def get(self, request, id):
+        """GET all form fields for a given form_id (project_id)"""
         user = request.user
-        try:
-            # Permission check logic from ProjectViewSet.get_queryset
-            allowed_projects = Project.objects.none()
-            if isinstance(user, UAdmin):
-                agency_ids = user.agencies.values_list('id', flat=True)
-                allowed_projects = Project.objects.filter(company__in=agency_ids)
-            elif isinstance(user, Ba):
-                project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
-                allowed_projects = Project.objects.filter(id__in=project_ids)
-            elif hasattr(user, 'agency') and user.agency:
-                allowed_projects = Project.objects.filter(company=user.agency.id)
+        form_id = id
+        
+        allowed_projects = self._get_allowed_projects_for_user(user)
+        if form_id not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+        
+        form_fields = ProjectAssoc.objects.filter(project=form_id).order_by('rank')
+        serializer = ProjectAssocSerializer(form_fields, many=True)
+        return Response({'success': True, 'form_fields': serializer.data})
 
-            project = allowed_projects.get(id=form_id)
-        except Project.DoesNotExist:
-             return Response({
-                'success': False,
-                'message': f"Project with ID '{form_id}' not found or you do not have permission to access it.",
-                'data': {}
-            }, status=status.HTTP_404_NOT_FOUND)
-
-        # Get all associated form fields
-        form_fields = ProjectAssoc.objects.filter(project=project.id).order_by('rank')
-        project_serializer = ProjectSerializer(project)
-        fields_serializer = ProjectAssocSerializer(form_fields, many=True)
-        response_data = {
-            'success': True,
-            'message': 'Form structure retrieved successfully',
-            'data': {
-                'form_details': project_serializer.data,
-                'form_fields': fields_serializer.data
-            }
-        }
-        return Response(response_data)
-
-    def post(self, request, form_id):
-        """Create a form field for the given form (project)"""
+    def post(self, request, id):
+        """POST to create a new form field for a given form_id (project_id)"""
         user = request.user
+        form_id = id
+
+        allowed_projects = self._get_allowed_projects_for_user(user)
+        if form_id not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+
         data = request.data.copy()
         data['project'] = form_id
-        # Permission check: reuse logic from ProjectFormFieldsView
-        allowed_projects = []
-        if hasattr(user, 'agencies'):
-            agency_ids = user.agencies.values_list('id', flat=True)
-            allowed_projects = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
-        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'):
-            from .models import BaProject
-            allowed_projects = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
-        elif hasattr(user, 'agency') and user.agency:
-            allowed_projects = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
-        if int(form_id) not in allowed_projects:
-            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+        
         serializer = ProjectAssocSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
             return Response({'success': True, 'message': 'Form field created successfully.', 'form_field': serializer.data}, status=201)
         return Response({'success': False, 'message': 'Invalid data.', 'errors': serializer.errors}, status=400)
 
-    def put(self, request, form_id):
-        """Update a form field by form_field_id (in body or query param)"""
+    def put(self, request, id):
+        """PUT to update a form field by its field_id"""
         user = request.user
-        form_field_id = request.data.get('form_field_id') or request.query_params.get('form_field_id')
-        if not form_field_id:
-            return Response({'success': False, 'message': 'form_field_id is required.'}, status=400)
+        field_id = id
+        
         try:
-            form_field = ProjectAssoc.objects.get(id=form_field_id, project=form_id)
+            form_field = ProjectAssoc.objects.get(id=field_id)
         except ProjectAssoc.DoesNotExist:
-            return Response({'success': False, 'message': 'Form field not found for this form.'}, status=404)
-        # Permission check
-        allowed_projects = []
-        if hasattr(user, 'agencies'):
-            agency_ids = user.agencies.values_list('id', flat=True)
-            allowed_projects = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
-        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'):
-            from .models import BaProject
-            allowed_projects = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
-        elif hasattr(user, 'agency') and user.agency:
-            allowed_projects = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
-        if int(form_id) not in allowed_projects:
-            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+            return Response({'success': False, 'message': 'Form field not found.'}, status=404)
+
+        allowed_projects = self._get_allowed_projects_for_user(user)
+        if form_field.project not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have permission to modify this form field.'}, status=403)
+            
         serializer = ProjectAssocSerializer(form_field, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({'success': True, 'message': 'Form field updated successfully.', 'form_field': serializer.data})
         return Response({'success': False, 'message': 'Invalid data.', 'errors': serializer.errors}, status=400)
-
-    def delete(self, request, form_id):
-        """Delete a form field by form_field_id (in body or query param)"""
+        
+    def delete(self, request, id):
+        """DELETE a form field by its field_id"""
         user = request.user
-        form_field_id = request.data.get('form_field_id') or request.query_params.get('form_field_id')
-        if not form_field_id:
-            return Response({'success': False, 'message': 'form_field_id is required.'}, status=400)
+        field_id = id
+
         try:
-            form_field = ProjectAssoc.objects.get(id=form_field_id, project=form_id)
+            form_field = ProjectAssoc.objects.get(id=field_id)
         except ProjectAssoc.DoesNotExist:
-            return Response({'success': False, 'message': 'Form field not found for this form.'}, status=404)
-        # Permission check
-        allowed_projects = []
-        if hasattr(user, 'agencies'):
-            agency_ids = user.agencies.values_list('id', flat=True)
-            allowed_projects = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
-        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'):
-            from .models import BaProject
-            allowed_projects = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
-        elif hasattr(user, 'agency') and user.agency:
-            allowed_projects = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
-        if int(form_id) not in allowed_projects:
-            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+            return Response({'success': False, 'message': 'Form field not found.'}, status=404)
+
+        allowed_projects = self._get_allowed_projects_for_user(user)
+        if form_field.project not in allowed_projects:
+            return Response({'success': False, 'message': 'You do not have permission to delete this form field.'}, status=403)
+            
         form_field.delete()
         return Response({'success': True, 'message': 'Form field deleted successfully.'})
 
