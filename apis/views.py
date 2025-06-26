@@ -855,6 +855,32 @@ class ProjectHeadViewSet(BaseViewSet):
             return Response({'success': True, 'message': 'ProjectHead updated successfully.', 'data': serializer.data})
         return Response({'success': False, 'message': 'Invalid data.', 'errors': serializer.errors}, status=400)
 
+    @action(methods=['delete'], detail=False, url_path='delete')
+    def delete_by_body(self, request):
+        """
+        Delete a ProjectHead by ID provided in the request body.
+        """
+        user = request.user
+        project_head_id = request.data.get('id')
+        if not project_head_id:
+            return Response({'success': False, 'message': 'ProjectHead ID is required.'}, status=400)
+        try:
+            project_head = ProjectHead.objects.get(id=project_head_id)
+        except ProjectHead.DoesNotExist:
+            return Response({'success': False, 'message': 'ProjectHead not found.'}, status=404)
+        # Permission check
+        if isinstance(user, UAdmin):
+            allowed_agency_ids = user.agencies.values_list('id', flat=True)
+            if project_head.company not in allowed_agency_ids:
+                return Response({'success': False, 'message': 'You do not have permission to delete this ProjectHead.'}, status=403)
+        elif isinstance(user, Ba):
+            if user.company != project_head.company:
+                return Response({'success': False, 'message': 'You do not have permission to delete this ProjectHead.'}, status=403)
+        else:
+            return Response({'success': False, 'message': 'Only admins and BAs can delete ProjectHeads.'}, status=403)
+        project_head.delete()
+        return Response({'success': True, 'message': 'ProjectHead deleted successfully.'}, status=200)
+
 class BranchViewSet(BaseViewSet):
     """ViewSet for Branch model"""
     queryset = Branch.objects.all()
