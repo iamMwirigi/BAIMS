@@ -61,7 +61,7 @@ urlpatterns = [
     path('data/project/<int:project_id>/', ProjectDataView.as_view(), name='project-data'),
     
     path('project-heads-with-forms/', ProjectHeadWithProjectsView.as_view(), name='project-heads-with-forms'),
-    path('project-form-fields/<int:project_id>/', ProjectFormFieldsView.as_view(), name='project-form-fields'),
+    path('project-form-fields/', ProjectFormFieldsView.as_view(), name='project-form-fields'),
     
     path('', include(router.urls)),
 ]

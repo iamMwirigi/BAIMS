@@ -1802,7 +1802,24 @@ class ProjectHeadWithProjectsView(APIView):
 
 class ProjectFormFieldsView(APIView):
     permission_classes = [IsAuthenticated]
-    def get(self, request, project_id):
-        form_fields = ProjectAssoc.objects.filter(project=project_id).order_by('rank')
+    def get(self, request):
+        user = request.user
+        project_ids = []
+        # Admin: all projects in their agencies
+        if hasattr(user, 'agencies'):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            project_ids = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
+        # BA: projects assigned to them
+        elif hasattr(user, 'company') and hasattr(user, 'id') and hasattr(user, 'is_authenticated'):
+            from .models import BaProject
+            project_ids = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
+        # Agency user: projects for their agency
+        elif hasattr(user, 'agency') and user.agency:
+            project_ids = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
+        # If no projects found, return empty
+        if not project_ids:
+            return Response({'form_fields': []})
+        # Get all form fields for these projects
+        form_fields = ProjectAssoc.objects.filter(project__in=project_ids).order_by('project', 'rank')
         serializer = ProjectAssocSerializer(form_fields, many=True)
         return Response({'form_fields': serializer.data})
