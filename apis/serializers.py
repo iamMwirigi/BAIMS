@@ -5,7 +5,7 @@ from .models import (
     AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
     RedbullOutlet, TotalKenya, AppData, Ba, Backend, BaProject, ProjectAssoc,
     Containers, ContainerOptions, Coop, Coop2, FormSection, FormSubSection,
-    InputGroup, InputOptions, UAdmin
+    InputGroup, InputOptions, UAdmin, FormSubmission
 )
 
 # Agency Serializers
@@ -905,4 +905,11 @@ class BaNestedSerializer(serializers.ModelSerializer):
             "ba_id": str(instance.id),
             "company": agency_name,
             "projects": projects_data
-        } 
+        }
+
+
+class FormSubmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FormSubmission
+        fields = ['id', 'user', 'project', 'form_section_id', 'answers', 'submitted_at']
+        read_only_fields = ['id', 'submitted_at', 'user'] 

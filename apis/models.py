@@ -1,5 +1,6 @@
 from django.db import models
 import secrets
+from django.contrib.postgres.fields import JSONField  # If using Postgres, otherwise use models.JSONField for Django 3.1+
 
 # Create your models here.
 
@@ -461,3 +462,16 @@ class AuthToken(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class FormSubmission(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    form_section_id = models.IntegerField(null=True, blank=True)
+    answers = models.JSONField()
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'form_submission'
+        verbose_name = 'Form Submission'
+        verbose_name_plural = 'Form Submissions'

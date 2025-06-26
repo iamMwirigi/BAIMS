@@ -9,7 +9,7 @@ from .views import (
     ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet,
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
     AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView,
-    UnifiedFormView, UnifiedFormFieldView, UnifiedFormSectionView, ProfileView
+    UnifiedFormView, UnifiedFormFieldView, UnifiedFormSectionView, ProfileView, SubmitFormView
 )
 from .rich_views import BaRichDataView, BaDataWithRecordsView
 from .data_views import WideDataFilterView, ProjectDataView
@@ -51,6 +51,7 @@ urlpatterns = [
     path('admin-login/', AdminLoginView.as_view(), name='admin-login'),
     path('ba-login/', BaLoginView.as_view(), name='ba-login'),
     path('profile/', ProfileView.as_view(), name='profile'),
+    path('submit-form/', SubmitFormView.as_view(), name='submit-form'),
     
     # Rich API endpoints
     path('rich/ba/<int:ba_id>/', BaRichDataView.as_view(), name='ba-rich-data'),

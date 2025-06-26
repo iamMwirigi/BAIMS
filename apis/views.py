@@ -42,7 +42,8 @@ from .serializers import (
     FormSubSectionSerializer, FormSubSectionListSerializer,
     InputGroupSerializer, InputGroupListSerializer,
     InputOptionsSerializer, InputOptionsListSerializer,
-    UAdminSerializer
+    UAdminSerializer,
+    FormSubmissionSerializer
 )
 from django.db import models
 from django.contrib.auth.hashers import check_password
@@ -50,6 +51,7 @@ from rest_framework.authtoken.models import Token
 from .authentication import TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication
 from datetime import date, timedelta
 from apis.nested_serializers import ProjectAssocNestedSerializer
+from django.db import connection
 
 # Custom exception handler for better error messages
 def custom_exception_handler(exc, context):
@@ -2176,3 +2178,67 @@ class ProfileView(APIView):
             'user_type': user_type,
             'profile_picture': profile_picture
         })
+
+class SubmitFormView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
+
+    def post(self, request):
+        user = request.user
+        data = request.data
+        project_id = data.get('project_id')
+        answers = data.get('answers')
+        if not project_id or not answers or not isinstance(answers, dict):
+            return Response({'success': False, 'message': 'project_id and answers (dict) are required.'}, status=400)
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return Response({'success': False, 'message': f'Project with id {project_id} not found.'}, status=404)
+
+        # Get agency
+        try:
+            agency = Agency.objects.get(id=project.company)
+        except Agency.DoesNotExist:
+            return Response({'success': False, 'message': f'Agency with id {project.company} not found.'}, status=404)
+
+        holding_table = agency.holding_table
+        if not holding_table:
+            return Response({'success': False, 'message': 'No holding_table defined for this agency.'}, status=400)
+
+        # Validate that all answer keys are valid columns in the holding_table
+        with connection.cursor() as cursor:
+            cursor.execute(f"DESCRIBE `{holding_table}`;")
+            columns = [row[0] for row in cursor.fetchall()]
+        invalid_fields = [k for k in answers.keys() if k not in columns]
+        if invalid_fields:
+            return Response({'success': False, 'message': 'Invalid fields in answers.', 'invalid_fields': invalid_fields, 'valid_fields': columns}, status=400)
+
+        # Prepare insert
+        insert_fields = list(answers.keys())
+        insert_values = [answers[k] for k in insert_fields]
+        # Add project, ba_id, t_date if they exist in the table
+        extra_fields = []
+        extra_values = []
+        if 'project' in columns:
+            extra_fields.append('project')
+            extra_values.append(project_id)
+        if 'ba_id' in columns and hasattr(user, 'id'):
+            extra_fields.append('ba_id')
+            extra_values.append(user.id)
+        if 't_date' in columns:
+            from datetime import date
+            extra_fields.append('t_date')
+            extra_values.append(date.today())
+        all_fields = insert_fields + extra_fields
+        all_values = insert_values + extra_values
+        placeholders = ','.join(['%s'] * len(all_fields))
+        columns_sql = ','.join(f'`{f}`' for f in all_fields)
+        sql = f"INSERT INTO `{holding_table}` ({columns_sql}) VALUES ({placeholders})"
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql, all_values)
+        except Exception as e:
+            return Response({'success': False, 'message': f'Failed to insert data: {str(e)}'}, status=500)
+        return Response({'success': True, 'message': 'Form submitted successfully.'}, status=201)
