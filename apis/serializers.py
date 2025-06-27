@@ -88,7 +88,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             'combined': {'default': 1},
             'status': {'default': 1},
             'location_status': {'default': 'off'},
-            'image_required': {'default': 'NO'}
+            'image_required': {'default': 'NO'},
+            'top_table': {'required': False, 'default': ''} # Make top_table optional and default to empty string
         }
     
     def create(self, validated_data):
