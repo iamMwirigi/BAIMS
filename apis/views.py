@@ -2276,27 +2276,35 @@ class DashboardStatsView(APIView):
 
     def get(self, request):
         user = request.user
-        total_projects = 0
+        total_projects_count = 0
         total_bas = 0
+        projects_with_data = []
 
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
-            total_projects = Project.objects.filter(company__in=agency_ids).count()
+            projects = Project.objects.filter(company__in=agency_ids)
+            total_projects_count = projects.count()
             total_bas = Ba.objects.filter(company__in=agency_ids).count()
+            projects_with_data = ProjectWithDataCountSerializer(projects, many=True).data
 
         elif isinstance(user, Ba):
-            # A BA sees projects they are assigned to, and all BAs from their own company
-            total_projects = BaProject.objects.filter(ba_id=user.id).count()
+            project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            projects = Project.objects.filter(id__in=project_ids)
+            total_projects_count = projects.count()
             if user.company:
                 total_bas = Ba.objects.filter(company=user.company).count()
+            projects_with_data = ProjectWithDataCountSerializer(projects, many=True).data
 
         elif hasattr(user, 'agency') and user.agency: # Regular User
-            total_projects = Project.objects.filter(company=user.agency.id).count()
+            projects = Project.objects.filter(company=user.agency.id)
+            total_projects_count = projects.count()
             total_bas = Ba.objects.filter(company=user.agency.id).count()
+            projects_with_data = ProjectWithDataCountSerializer(projects, many=True).data
 
         data = {
-            'total_projects': total_projects,
+            'total_projects': total_projects_count,
             'total_bas': total_bas,
+            'projects': projects_with_data,
         }
 
         return Response({
