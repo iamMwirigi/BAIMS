@@ -88,8 +88,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             'combined': {'default': 1},
             'status': {'default': 1},
             'location_status': {'default': 'off'},
-            'image_required': {'default': 'NO'},
-            'top_table': {'required': False, 'default': ''} # Make top_table optional and default to empty string
+            'image_required': {'default': 'NO'}
         }
     
     def create(self, validated_data):
@@ -815,6 +814,7 @@ class ProjectAssocNestedSerializer(serializers.ModelSerializer):
         options_data = InputOptionsNestedSerializer(input_options, many=True).data
         
         return {
+            "id": instance.id,
             "input_title": instance.report_display_name,
             "field_id": instance.column_name,
             "input_rank": str(instance.rank),
