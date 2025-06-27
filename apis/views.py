@@ -864,10 +864,18 @@ class BranchViewSet(BaseViewSet):
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     
     def get_queryset(self):
-        # TODO: The Branch model is not linked to a company/agency.
-        # This currently returns all branches to any authenticated user.
-        # A schema change is required to filter this securely.
-        return Branch.objects.all()
+        user = self.request.user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            return Branch.objects.filter(agency_id__in=agency_ids)
+        
+        if isinstance(user, Ba) and user.company:
+            return Branch.objects.filter(agency_id=user.company)
+
+        if hasattr(user, 'agency') and user.agency:
+            return Branch.objects.filter(agency_id=user.agency.id)
+            
+        return Branch.objects.none()
 
     def get_serializer_class(self):
         if self.action == 'list':
