@@ -2094,7 +2094,12 @@ class UnifiedFormView(APIView):
         try:
             project_head = ProjectHead.objects.get(id=id)
             # Add permission check here if necessary
-            projects = Project.objects.filter(company=project_head.company)
+            if hasattr(request.user, 'phone'):  # crude check for BA user
+                from .models import BaProject
+                assigned_project_ids = BaProject.objects.filter(ba_id=request.user.id).values_list('project_id', flat=True)
+                projects = Project.objects.filter(company=project_head.company, id__in=assigned_project_ids)
+            else:
+                projects = Project.objects.filter(company=project_head.company)
             serializer = ProjectListSerializer(projects, many=True)
             return Response({
                 'success': True,
