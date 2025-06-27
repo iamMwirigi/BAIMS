@@ -89,7 +89,7 @@ class ProjectHead(models.Model):
 class Branch(models.Model):
     """Branch model representing branch locations"""
     name = models.TextField(null=True, blank=True)
-    
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='branches', null=True, blank=True)
     class Meta:
         db_table = 'branch'
         verbose_name = 'Branch'
