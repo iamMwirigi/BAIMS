@@ -9,7 +9,8 @@ from .views import (
     ContainerOptionsViewSet, CoopViewSet, Coop2ViewSet,
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
     AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView,
-    UnifiedFormView, UnifiedFormFieldView, UnifiedFormSectionView, ProfileView, SubmitFormView
+    UnifiedFormView, UnifiedFormFieldView, UnifiedFormSectionView, ProfileView, SubmitFormView,
+    ProjectFormFieldsView, DashboardStatsView
 )
 from .rich_views import BaRichDataView, BaDataWithRecordsView
 from .data_views import WideDataFilterView, ProjectDataView
@@ -68,6 +69,8 @@ urlpatterns = [
     
     path('form-sections/<int:id>/', UnifiedFormSectionView.as_view(), name='unified-form-section-view'),
     path('forms/<int:id>/', UnifiedFormView.as_view(), name='unified-form-view'),
+    
+    path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     
     path('', include(router.urls)),
 ]

@@ -2266,3 +2266,41 @@ class SubmitFormView(APIView):
         except Exception as e:
             return Response({'success': False, 'message': f'Failed to insert data: {str(e)}'}, status=500)
         return Response({'success': True, 'message': 'Form submitted successfully.'}, status=201)
+
+class DashboardStatsView(APIView):
+    """
+    Provides statistics for the dashboard based on the logged-in user's permissions.
+    """
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        total_projects = 0
+        total_bas = 0
+
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            total_projects = Project.objects.filter(company__in=agency_ids).count()
+            total_bas = Ba.objects.filter(company__in=agency_ids).count()
+
+        elif isinstance(user, Ba):
+            # A BA sees projects they are assigned to, and all BAs from their own company
+            total_projects = BaProject.objects.filter(ba_id=user.id).count()
+            if user.company:
+                total_bas = Ba.objects.filter(company=user.company).count()
+
+        elif hasattr(user, 'agency') and user.agency: # Regular User
+            total_projects = Project.objects.filter(company=user.agency.id).count()
+            total_bas = Ba.objects.filter(company=user.agency.id).count()
+
+        data = {
+            'total_projects': total_projects,
+            'total_bas': total_bas,
+        }
+
+        return Response({
+            'success': True,
+            'message': 'Dashboard statistics retrieved successfully.',
+            'data': data
+        })
