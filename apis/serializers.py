@@ -133,11 +133,15 @@ class ProjectHeadSerializer(serializers.ModelSerializer):
         return instance
 
 class ProjectHeadListSerializer(serializers.ModelSerializer):
-    """Serializer for listing project heads"""
-    
+    """Serializer for listing ProjectHead data"""
+    projects = serializers.SerializerMethodField()
     class Meta:
         model = ProjectHead
-        fields = ['id', 'name', 'company', 'start_date', 'end_date', 'aka_name']
+        fields = ['id', 'name', 'company', 'start_date', 'end_date', 'aka_name', 'projects']
+
+    def get_projects(self, obj):
+        projects = Project.objects.filter(company=obj.company)
+        return ProjectWithDataCountSerializer(projects, many=True).data
 
 
 # Branch Serializers
@@ -912,4 +916,36 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = FormSubmission
         fields = ['id', 'user', 'project', 'form_section_id', 'answers', 'submitted_at']
-        read_only_fields = ['id', 'submitted_at', 'user'] 
+        read_only_fields = ['id', 'submitted_at', 'user']
+
+class ProjectWithDataCountSerializer(serializers.ModelSerializer):
+    total_data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Project
+        fields = ['id', 'name', 'client', 'top_table', 'total_data']
+
+    def get_total_data(self, obj):
+        table_name = obj.top_table
+        if not table_name:
+            return 0
+
+        model_map = {
+            'airtel_combined': AirtelCombined,
+            'coke_combined': CokeCombined,
+            'baims_combined': BaimsCombined,
+            'kspca_combined': KspcaCombined,
+            'saff_combined': SaffCombined,
+            'total_kenya': TotalKenya,
+        }
+        
+        ModelClass = model_map.get(table_name)
+        if not ModelClass:
+            return 0
+        
+        if hasattr(ModelClass, 'project'):
+             return ModelClass.objects.filter(project=obj.id).count()
+        elif hasattr(ModelClass, 'project_id'):
+             return ModelClass.objects.filter(project_id=obj.id).count()
+        
+        return 0 
