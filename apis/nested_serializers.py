@@ -105,7 +105,7 @@ class BaNestedSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Ba
-        fields = ['id', 'name', 'phone', 'company']
+        fields = ['id', 'name', 'phone', 'company', 'pass_code']
     
     def to_representation(self, instance):
         """Custom representation to match the expected format"""
@@ -126,5 +126,6 @@ class BaNestedSerializer(serializers.ModelSerializer):
             "name": instance.name,
             "ba_id": str(instance.id),
             "company": agency_name,
+            "pass_code": instance.pass_code,
             "projects": projects_data
         } 

@@ -448,7 +448,7 @@ class BaListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Ba
-        fields = ['id', 'name', 'phone', 'company']
+        fields = ['id', 'name', 'phone', 'company', 'pass_code']
 
 
 # Backend Serializers
