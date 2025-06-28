@@ -1225,6 +1225,232 @@ class BaViewSet(BaseViewSet):
             'data': BaListSerializer(ba).data
         }, status=status.HTTP_201_CREATED)
 
+    def update(self, request, *args, **kwargs):
+        """
+        Update a BA record (PUT - full update).
+        Includes permission checks and validation.
+        """
+        try:
+            ba = self.get_object()
+            user = request.user
+            
+            # Permission checks
+            if isinstance(user, Ba) and user.id != ba.id:
+                return Response({
+                    'success': False,
+                    'message': 'You can only update your own profile',
+                    'data': {'errors': 'Permission denied'}
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Check if user can modify this BA
+            if isinstance(user, UAdmin):
+                agency_ids = user.agencies.values_list('id', flat=True)
+                if ba.company not in agency_ids:
+                    return Response({
+                        'success': False,
+                        'message': 'You can only update BAs in your agencies',
+                        'data': {'errors': 'Permission denied'}
+                    }, status=status.HTTP_403_FORBIDDEN)
+            
+            elif hasattr(user, 'agency') and user.agency:
+                if ba.company != user.agency.id:
+                    return Response({
+                        'success': False,
+                        'message': 'You can only update BAs in your agency',
+                        'data': {'errors': 'Permission denied'}
+                    }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Validate phone number uniqueness
+            phone = request.data.get('phone')
+            if phone and phone != ba.phone:
+                if Ba.objects.filter(phone=phone).exclude(id=ba.id).exists():
+                    return Response({
+                        'success': False,
+                        'message': 'Phone number already exists',
+                        'data': {'errors': {'phone': 'This phone number is already registered'}}
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Update the BA
+            serializer = self.get_serializer(ba, data=request.data)
+            if serializer.is_valid():
+                updated_ba = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'BA updated successfully',
+                    'data': {'item': BaListSerializer(updated_ba).data}
+                })
+            return Response({
+                'success': False,
+                'message': 'Invalid data provided',
+                'data': {'errors': serializer.errors}
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {'errors': 'BA not found'}
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while updating the BA',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Update a BA record (PATCH - partial update).
+        Includes permission checks and validation.
+        """
+        try:
+            ba = self.get_object()
+            user = request.user
+            
+            # Permission checks
+            if isinstance(user, Ba) and user.id != ba.id:
+                return Response({
+                    'success': False,
+                    'message': 'You can only update your own profile',
+                    'data': {'errors': 'Permission denied'}
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Check if user can modify this BA
+            if isinstance(user, UAdmin):
+                agency_ids = user.agencies.values_list('id', flat=True)
+                if ba.company not in agency_ids:
+                    return Response({
+                        'success': False,
+                        'message': 'You can only update BAs in your agencies',
+                        'data': {'errors': 'Permission denied'}
+                    }, status=status.HTTP_403_FORBIDDEN)
+            
+            elif hasattr(user, 'agency') and user.agency:
+                if ba.company != user.agency.id:
+                    return Response({
+                        'success': False,
+                        'message': 'You can only update BAs in your agency',
+                        'data': {'errors': 'Permission denied'}
+                    }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Validate phone number uniqueness
+            phone = request.data.get('phone')
+            if phone and phone != ba.phone:
+                if Ba.objects.filter(phone=phone).exclude(id=ba.id).exists():
+                    return Response({
+                        'success': False,
+                        'message': 'Phone number already exists',
+                        'data': {'errors': {'phone': 'This phone number is already registered'}}
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Update the BA
+            serializer = self.get_serializer(ba, data=request.data, partial=True)
+            if serializer.is_valid():
+                updated_ba = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'BA updated successfully',
+                    'data': {'item': BaListSerializer(updated_ba).data}
+                })
+            return Response({
+                'success': False,
+                'message': 'Invalid data provided',
+                'data': {'errors': serializer.errors}
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {'errors': 'BA not found'}
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while updating the BA',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a BA record.
+        Includes permission checks and cleanup of related data.
+        """
+        try:
+            ba = self.get_object()
+            user = request.user
+            
+            # Permission checks
+            if isinstance(user, Ba) and user.id != ba.id:
+                return Response({
+                    'success': False,
+                    'message': 'You can only delete your own profile',
+                    'data': {'errors': 'Permission denied'}
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Check if user can delete this BA
+            if isinstance(user, UAdmin):
+                agency_ids = user.agencies.values_list('id', flat=True)
+                if ba.company not in agency_ids:
+                    return Response({
+                        'success': False,
+                        'message': 'You can only delete BAs in your agencies',
+                        'data': {'errors': 'Permission denied'}
+                    }, status=status.HTTP_403_FORBIDDEN)
+            
+            elif hasattr(user, 'agency') and user.agency:
+                if ba.company != user.agency.id:
+                    return Response({
+                        'success': False,
+                        'message': 'You can only delete BAs in your agency',
+                        'data': {'errors': 'Permission denied'}
+                    }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Store BA info for response
+            ba_info = {
+                'id': ba.id,
+                'name': ba.name,
+                'phone': ba.phone,
+                'company': ba.company
+            }
+            
+            # Delete related data first
+            # Delete BA project associations
+            BaProject.objects.filter(ba_id=ba.id).delete()
+            
+            # Delete BA auth tokens
+            BaAuthToken.objects.filter(ba=ba).delete()
+            
+            # Delete BA data records from all data tables
+            data_tables = [AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined]
+            for table in data_tables:
+                table.objects.filter(ba_id=ba.id).delete()
+            
+            # Finally delete the BA
+            ba.delete()
+            
+            return Response({
+                'success': True,
+                'message': 'BA deleted successfully',
+                'data': {
+                    'deleted_ba': ba_info,
+                    'note': 'All associated project assignments and data records have been removed'
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except ObjectDoesNotExist as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': {'errors': 'BA not found'}
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': 'An error occurred while deleting the BA',
+                'data': {'errors': str(e)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class BackendViewSet(BaseViewSet):
     """ViewSet for Backend model"""
     queryset = Backend.objects.all()

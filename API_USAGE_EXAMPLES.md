@@ -238,4 +238,454 @@ You can test these endpoints using:
 Example curl command:
 ```bash
 curl "http://your-domain.com/api/rich/ba/2/?start_date=2025-01-01&end_date=2025-01-31"
-``` 
+```
+
+# BAIMS API Usage Examples
+
+## Brand Ambassador (BA) Endpoints
+
+The BA endpoints provide full CRUD operations for managing Brand Ambassador records. All endpoints require authentication and include proper permission checks based on user roles.
+
+### Base URL
+```
+/api/data/ba/
+```
+
+### Authentication
+All BA endpoints require authentication using one of these token types:
+- **User Token**: For regular users
+- **Admin Token**: For UAdmin users  
+- **BA Token**: For Brand Ambassador users
+
+Include the token in the Authorization header:
+```
+Authorization: Token <your_token_here>
+```
+
+---
+
+## 1. List All BAs (GET)
+
+**Endpoint:** `GET /api/data/ba/`
+
+**Description:** Retrieve all BAs that the authenticated user has permission to view.
+
+**Permissions:**
+- **UAdmin**: Can see BAs from all their associated agencies
+- **BA**: Can only see their own profile
+- **User**: Can see BAs from their agency
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Successfully retrieved 5 BAs",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "name": "John Doe",
+        "phone": "+254712345678",
+        "company": 1,
+        "pass_code": "hashed_password"
+      }
+    ],
+    "count": 5
+  }
+}
+```
+
+---
+
+## 2. Get Specific BA (GET)
+
+**Endpoint:** `GET /api/data/ba/{id}/`
+
+**Description:** Retrieve a specific BA by ID.
+
+**Permissions:** Same as list endpoint
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Item retrieved successfully",
+  "data": {
+    "item": {
+      "id": 1,
+      "name": "John Doe",
+      "phone": "+254712345678",
+      "company": 1,
+      "pass_code": "hashed_password"
+    }
+  }
+}
+```
+
+---
+
+## 3. Create New BA (POST)
+
+**Endpoint:** `POST /api/data/ba/`
+
+**Description:** Create a new Brand Ambassador.
+
+**Permissions:**
+- **UAdmin**: Can create BAs in their agencies
+- **BA**: Cannot create other BAs
+- **User**: Can create BAs in their agency
+
+**Request Body:**
+```json
+{
+  "name": "Jane Smith",
+  "phone": "+254798765432",
+  "pass_code": "secure_password123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "BA created and assigned to 3 projects.",
+  "data": {
+    "id": 2,
+    "name": "Jane Smith",
+    "phone": "+254798765432",
+    "company": 1,
+    "pass_code": "hashed_password"
+  }
+}
+```
+
+**Notes:**
+- The `company` field is automatically set based on the authenticated user's agency
+- The BA is automatically assigned to all projects in their company
+- Start and end dates for project assignments can be specified in the request
+
+---
+
+## 4. Update BA (PUT - Full Update)
+
+**Endpoint:** `PUT /api/data/ba/{id}/`
+
+**Description:** Update a BA record with full replacement of all fields.
+
+**Permissions:**
+- **UAdmin**: Can update BAs in their agencies
+- **BA**: Can only update their own profile
+- **User**: Can update BAs in their agency
+
+**Request Body:**
+```json
+{
+  "name": "Jane Smith Updated",
+  "phone": "+254798765432",
+  "pass_code": "new_secure_password123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "BA updated successfully",
+  "data": {
+    "item": {
+      "id": 2,
+      "name": "Jane Smith Updated",
+      "phone": "+254798765432",
+      "company": 1,
+      "pass_code": "hashed_new_password"
+    }
+  }
+}
+```
+
+**Validation:**
+- Phone number must be unique across all BAs
+- All required fields must be provided (PUT requires complete data)
+
+---
+
+## 5. Partial Update BA (PATCH)
+
+**Endpoint:** `PATCH /api/data/ba/{id}/`
+
+**Description:** Update specific fields of a BA record.
+
+**Permissions:** Same as PUT endpoint
+
+**Request Body:**
+```json
+{
+  "name": "Jane Smith Updated"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "BA updated successfully",
+  "data": {
+    "item": {
+      "id": 2,
+      "name": "Jane Smith Updated",
+      "phone": "+254798765432",
+      "company": 1,
+      "pass_code": "hashed_password"
+    }
+  }
+}
+```
+
+**Validation:**
+- Phone number must be unique if being updated
+- Only provided fields are updated
+
+---
+
+## 6. Delete BA (DELETE)
+
+**Endpoint:** `DELETE /api/data/ba/{id}/`
+
+**Description:** Delete a BA record and all associated data.
+
+**Permissions:**
+- **UAdmin**: Can delete BAs in their agencies
+- **BA**: Can only delete their own profile
+- **User**: Can delete BAs in their agency
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "BA deleted successfully",
+  "data": {
+    "deleted_ba": {
+      "id": 2,
+      "name": "Jane Smith Updated",
+      "phone": "+254798765432",
+      "company": 1
+    },
+    "note": "All associated project assignments and data records have been removed"
+  }
+}
+```
+
+**Cleanup Operations:**
+When a BA is deleted, the following related data is also removed:
+- BA project associations (`BaProject` records)
+- BA authentication tokens (`BaAuthToken` records)
+- BA data records from all data collection tables:
+  - AirtelCombined
+  - CokeCombined
+  - BaimsCombined
+  - KspcaCombined
+  - SaffCombined
+
+---
+
+## Error Responses
+
+### 404 Not Found
+```json
+{
+  "success": false,
+  "message": "BA with ID '999' does not exist.",
+  "data": {
+    "errors": "Item not found"
+  }
+}
+```
+
+### 403 Forbidden (Permission Denied)
+```json
+{
+  "success": false,
+  "message": "You can only update your own profile",
+  "data": {
+    "errors": "Permission denied"
+  }
+}
+```
+
+### 400 Bad Request (Validation Error)
+```json
+{
+  "success": false,
+  "message": "Phone number already exists",
+  "data": {
+    "errors": {
+      "phone": "This phone number is already registered"
+    }
+  }
+}
+```
+
+### 500 Internal Server Error
+```json
+{
+  "success": false,
+  "message": "An error occurred while updating the BA",
+  "data": {
+    "errors": "Database connection error"
+  }
+}
+```
+
+---
+
+## Usage Examples
+
+### cURL Examples
+
+**List all BAs:**
+```bash
+curl -X GET "http://localhost:8000/api/data/ba/" \
+  -H "Authorization: Token your_token_here"
+```
+
+**Get specific BA:**
+```bash
+curl -X GET "http://localhost:8000/api/data/ba/1/" \
+  -H "Authorization: Token your_token_here"
+```
+
+**Create new BA:**
+```bash
+curl -X POST "http://localhost:8000/api/data/ba/" \
+  -H "Authorization: Token your_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "New BA",
+    "phone": "+254712345679",
+    "pass_code": "password123"
+  }'
+```
+
+**Update BA (PUT):**
+```bash
+curl -X PUT "http://localhost:8000/api/data/ba/1/" \
+  -H "Authorization: Token your_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated BA Name",
+    "phone": "+254712345679",
+    "pass_code": "new_password123"
+  }'
+```
+
+**Partial update BA (PATCH):**
+```bash
+curl -X PATCH "http://localhost:8000/api/data/ba/1/" \
+  -H "Authorization: Token your_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated BA Name"
+  }'
+```
+
+**Delete BA:**
+```bash
+curl -X DELETE "http://localhost:8000/api/data/ba/1/" \
+  -H "Authorization: Token your_token_here"
+```
+
+### JavaScript/Fetch Examples
+
+**List all BAs:**
+```javascript
+fetch('/api/data/ba/', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Token your_token_here'
+  }
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+**Create new BA:**
+```javascript
+fetch('/api/data/ba/', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Token your_token_here',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'New BA',
+    phone: '+254712345679',
+    pass_code: 'password123'
+  })
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+**Update BA:**
+```javascript
+fetch('/api/data/ba/1/', {
+  method: 'PUT',
+  headers: {
+    'Authorization': 'Token your_token_here',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'Updated BA Name',
+    phone: '+254712345679',
+    pass_code: 'new_password123'
+  })
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+**Delete BA:**
+```javascript
+fetch('/api/data/ba/1/', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Token your_token_here'
+  }
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+---
+
+## Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | Integer | Auto | Unique identifier |
+| `name` | String (128 chars) | Yes | Full name of the BA |
+| `phone` | String (64 chars) | Yes | Phone number (must be unique) |
+| `company` | Integer | Auto | Agency/company ID (set automatically) |
+| `pass_code` | String (1000 chars) | Yes | Password/passcode for authentication |
+
+---
+
+## Security Considerations
+
+1. **Authentication Required**: All endpoints require valid authentication tokens
+2. **Permission-Based Access**: Users can only access/modify BAs within their scope
+3. **Phone Number Uniqueness**: Phone numbers must be unique across all BAs
+4. **Data Cleanup**: Deleting a BA removes all associated data to prevent orphaned records
+5. **Input Validation**: All input data is validated before processing
+
+---
+
+## Rate Limiting
+
+The API includes rate limiting to prevent abuse. Contact the system administrator for specific limits.
+
+---
+
+## Support
+
+For technical support or questions about the BA endpoints, please contact the development team or refer to the system documentation. 
