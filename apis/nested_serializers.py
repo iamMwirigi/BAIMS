@@ -38,6 +38,7 @@ class ProjectAssocNestedSerializer(serializers.ModelSerializer):
         options_data = InputOptionsNestedSerializer(input_options, many=True).data
         
         return {
+            "id": instance.id,
             "input_title": instance.report_display_name,
             "field_id": instance.column_name,
             "input_rank": str(instance.rank),
