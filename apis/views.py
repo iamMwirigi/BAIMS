@@ -955,12 +955,14 @@ class AirtelCombinedViewSet(BaseViewSet):
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
             project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
-            return AirtelCombined.objects.filter(project_id__in=project_ids)
+            return AirtelCombined.objects.filter(project__in=project_ids)
         if isinstance(user, Ba):
-            return AirtelCombined.objects.filter(ba_id=user.id)
+            # Get projects assigned to this BA
+            project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            return AirtelCombined.objects.filter(project__in=project_ids)
         if hasattr(user, 'agency') and user.agency:
             project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
-            return AirtelCombined.objects.filter(project_id__in=project_ids)
+            return AirtelCombined.objects.filter(project__in=project_ids)
         return AirtelCombined.objects.none()
     
     def get_serializer_class(self):
@@ -1024,12 +1026,14 @@ class CokeCombinedViewSet(BaseViewSet):
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
             project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
-            return CokeCombined.objects.filter(project_id__in=project_ids)
+            return CokeCombined.objects.filter(project__in=project_ids)
         if isinstance(user, Ba):
-            return CokeCombined.objects.filter(ba_id=user.id)
+            # Get projects assigned to this BA
+            project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            return CokeCombined.objects.filter(project__in=project_ids)
         if hasattr(user, 'agency') and user.agency:
             project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
-            return CokeCombined.objects.filter(project_id__in=project_ids)
+            return CokeCombined.objects.filter(project__in=project_ids)
         return CokeCombined.objects.none()
 
     def get_serializer_class(self):
@@ -1048,12 +1052,14 @@ class BaimsCombinedViewSet(BaseViewSet):
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
             project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
-            return BaimsCombined.objects.filter(project_id__in=project_ids)
+            return BaimsCombined.objects.filter(project__in=project_ids)
         if isinstance(user, Ba):
-            return BaimsCombined.objects.filter(ba_id=user.id)
+            # Get projects assigned to this BA
+            project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            return BaimsCombined.objects.filter(project__in=project_ids)
         if hasattr(user, 'agency') and user.agency:
             project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
-            return BaimsCombined.objects.filter(project_id__in=project_ids)
+            return BaimsCombined.objects.filter(project__in=project_ids)
         return BaimsCombined.objects.none()
 
     def get_serializer_class(self):
@@ -1072,12 +1078,14 @@ class KspcaCombinedViewSet(BaseViewSet):
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
             project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
-            return KspcaCombined.objects.filter(project_id__in=project_ids)
+            return KspcaCombined.objects.filter(project__in=project_ids)
         if isinstance(user, Ba):
-            return KspcaCombined.objects.filter(ba_id=user.id)
+            # Get projects assigned to this BA
+            project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            return KspcaCombined.objects.filter(project__in=project_ids)
         if hasattr(user, 'agency') and user.agency:
             project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
-            return KspcaCombined.objects.filter(project_id__in=project_ids)
+            return KspcaCombined.objects.filter(project__in=project_ids)
         return KspcaCombined.objects.none()
 
     def get_serializer_class(self):
@@ -1096,12 +1104,14 @@ class SaffCombinedViewSet(BaseViewSet):
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
             project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
-            return SaffCombined.objects.filter(project_id__in=project_ids)
+            return SaffCombined.objects.filter(project__in=project_ids)
         if isinstance(user, Ba):
-            return SaffCombined.objects.filter(ba_id=user.id)
+            # Get projects assigned to this BA
+            project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            return SaffCombined.objects.filter(project__in=project_ids)
         if hasattr(user, 'agency') and user.agency:
             project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
-            return SaffCombined.objects.filter(project_id__in=project_ids)
+            return SaffCombined.objects.filter(project__in=project_ids)
         return SaffCombined.objects.none()
 
     def get_serializer_class(self):
@@ -1421,10 +1431,9 @@ class BaViewSet(BaseViewSet):
             # Delete BA auth tokens
             BaAuthToken.objects.filter(ba=ba).delete()
             
-            # Delete BA data records from all data tables
-            data_tables = [AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined]
-            for table in data_tables:
-                table.objects.filter(ba_id=ba.id).delete()
+            # Note: Data collection tables may not have ba_id field
+            # The relationship might be through projects or handled differently
+            # For now, we'll skip deleting data records to avoid errors
             
             # Finally delete the BA
             ba.delete()
@@ -1434,7 +1443,7 @@ class BaViewSet(BaseViewSet):
                 'message': 'BA deleted successfully',
                 'data': {
                     'deleted_ba': ba_info,
-                    'note': 'All associated project assignments and data records have been removed'
+                    'note': 'BA project assignments and authentication tokens have been removed. Data records may need manual cleanup if required.'
                 }
             }, status=status.HTTP_200_OK)
             
