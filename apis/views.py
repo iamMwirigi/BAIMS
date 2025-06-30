@@ -2538,9 +2538,9 @@ class DashboardStatsView(APIView):
             'success': True,
             'message': 'Dashboard statistics retrieved successfully.',
             'data': {
-                'total_project_heads': accessible_project_heads.count(),
+                'total_projects': accessible_project_heads.count(),
                 'total_bas': total_ba_count,
-                'project_heads': project_heads_data
+                'projects': project_heads_data
             }
         })
 
