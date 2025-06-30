@@ -913,7 +913,7 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = FormSubmission
         fields = ['id', 'user', 'project', 'form_section_id', 'answers', 'submitted_at']
-        read_only_fields = ['id', 'submitted_at', 'user']
+        read_only_fields = ['id', 'submitted_at', 'user'] 
 
 class ProjectWithDataCountSerializer(serializers.ModelSerializer):
     total_data = serializers.SerializerMethodField()

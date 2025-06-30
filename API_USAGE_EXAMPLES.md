@@ -238,7 +238,7 @@ You can test these endpoints using:
 Example curl command:
 ```bash
 curl "http://your-domain.com/api/rich/ba/2/?start_date=2025-01-01&end_date=2025-01-31"
-```
+``` 
 
 # BAIMS API Usage Examples
 

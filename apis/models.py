@@ -476,3 +476,6 @@ class FormSubmission(models.Model):
         db_table = 'form_submission'
         verbose_name = 'Form Submission'
         verbose_name_plural = 'Form Submissions'
+
+    def __str__(self):
+        return f"Submission for {self.project} by {self.user}"

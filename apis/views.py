@@ -12,7 +12,8 @@ from .models import (
     AirtelCombined, CokeCombined, BaimsCombined, KspcaCombined, SaffCombined,
     RedbullOutlet, TotalKenya, AppData, Ba, Backend, BaProject, ProjectAssoc,
     Containers, ContainerOptions, Coop, Coop2, FormSection, FormSubSection,
-    InputGroup, InputOptions, AuthToken, UAdmin, AdminAuthToken, BaAuthToken
+    InputGroup, InputOptions, AuthToken, UAdmin, AdminAuthToken, BaAuthToken,
+    FormSubmission
 )
 from .serializers import (
     UserSerializer, UserListSerializer,
@@ -2345,7 +2346,7 @@ class UnifiedFormView(APIView):
                 assigned_project_ids = BaProject.objects.filter(ba_id=request.user.id).values_list('project_id', flat=True)
                 projects = Project.objects.filter(company=project_head.company, id__in=assigned_project_ids)
             else:
-                projects = Project.objects.filter(company=project_head.company)
+            projects = Project.objects.filter(company=project_head.company)
             serializer = ProjectListSerializer(projects, many=True)
             return Response({
                 'success': True,
@@ -2439,7 +2440,7 @@ class SubmitFormView(APIView):
         if serializer.is_valid():
             try:
                 # Check if the user is a 'Ba' and has access to the project
-                user = request.user
+        user = request.user
                 project_id = serializer.validated_data.get('project').id
                 
                 if isinstance(user, Ba):
@@ -2482,8 +2483,8 @@ class SubmitFormView(APIView):
                 }, status=status.HTTP_201_CREATED)
             
             except Exception as e:
-                return Response({
-                    'success': False,
+            return Response({
+                'success': False,
                     'message': 'An error occurred during submission',
                     'data': {'errors': str(e)}
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -2498,7 +2499,7 @@ class SubmitFormView(APIView):
 class DashboardStatsView(APIView):
     """
     Provides statistics for the dashboard based on the logged-in user's permissions.
-    Returns total BA count and a list of projects with their data counts.
+    Returns total BA count and a list of project heads with their project and data counts.
     """
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -2506,46 +2507,58 @@ class DashboardStatsView(APIView):
     def get(self, request):
         user = request.user
         
-        accessible_projects = Project.objects.none()
+        accessible_project_heads = ProjectHead.objects.none()
         total_ba_count = 0
 
+        # Determine accessible project heads and BAs based on user type
         if isinstance(user, UAdmin):
             admin_agencies = user.agencies.all()
             if admin_agencies:
                 agency_ids = [a.id for a in admin_agencies]
-                accessible_projects = Project.objects.filter(company__in=agency_ids)
+                accessible_project_heads = ProjectHead.objects.filter(company__in=agency_ids)
                 total_ba_count = Ba.objects.filter(company__in=agency_ids).count()
 
         elif isinstance(user, Ba):
-            ba_projects = BaProject.objects.filter(ba_id=user.id)
-            project_ids = [bp.project_id for bp in ba_projects]
-            accessible_projects = Project.objects.filter(id__in=project_ids)
-            total_ba_count = 1 if accessible_projects.exists() else 0
+            if hasattr(user, 'company'):
+                # A BA can see all project heads from their company
+                accessible_project_heads = ProjectHead.objects.filter(company=user.company)
+                # The BA count is just 1 for the BA themselves
+                total_ba_count = 1
         
         elif isinstance(user, User):
             if hasattr(user, 'agency') and user.agency:
-                accessible_projects = Project.objects.filter(company=user.agency.id)
+                accessible_project_heads = ProjectHead.objects.filter(company=user.agency.id)
                 total_ba_count = Ba.objects.filter(company=user.agency.id).count()
-        
+
         else:
-             return Response({"error": "Dashboard for this user type is not implemented."}, status=status.HTTP_501_NOT_IMPLEMENTED)
+            return Response({"error": "Dashboard for this user type is not implemented."}, status=status.HTTP_501_NOT_IMPLEMENTED)
 
-        # Annotate projects with data count
-        appdata_count_subquery = AppData.objects.filter(
-            project=OuterRef('pk')
-        ).values('project').annotate(
-            c=Count('id')
-        ).values('c').order_by()
+        # Prepare data with project and data submission counts
+        project_heads_data = []
+        for head in accessible_project_heads:
+            # Get projects associated with this project head
+            projects_for_head = Project.objects.filter(company=head.company)
+            
+            # For a BA user, we must filter by projects they are assigned to
+            if isinstance(user, Ba):
+                ba_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+                projects_for_head = projects_for_head.filter(id__in=ba_project_ids)
 
-        projects_with_counts = accessible_projects.annotate(
-            data_count=Coalesce(Subquery(appdata_count_subquery, output_field=IntegerField()), 0)
-        )
-        
-        serializer = ProjectWithDataCountSerializer(projects_with_counts, many=True)
+            projects_count = projects_for_head.count()
+            
+            # Count form submissions for these projects
+            data_entries_count = FormSubmission.objects.filter(project__in=projects_for_head).count()
+
+            project_heads_data.append({
+                'id': head.id,
+                'name': head.name,
+                'projects_count': projects_count,
+                'data_entries_count': data_entries_count
+            })
 
         response_data = {
             'total_ba_count': total_ba_count,
-            'projects_data': serializer.data
+            'project_heads': project_heads_data
         }
 
         return Response(response_data)
