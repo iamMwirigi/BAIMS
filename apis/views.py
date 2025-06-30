@@ -53,7 +53,8 @@ from .authentication import TokenAuthentication, AdminTokenAuthentication, BaTok
 from datetime import date, timedelta
 from apis.nested_serializers import ProjectAssocNestedSerializer
 from django.db import connection
-from django.db.models import Count, Q
+from django.db.models import Count, Q, OuterRef, Subquery, IntegerField
+from django.db.models.functions import Coalesce
 
 # Custom exception handler for better error messages
 def custom_exception_handler(exc, context):
@@ -2434,174 +2435,120 @@ class SubmitFormView(APIView):
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
 
     def post(self, request):
-        """
-        Submit form data for a given project.
-        The user submitting must have access to the project.
-        The data should be a JSON object with form field IDs as keys.
-        """
-        user = request.user
-        project_id = request.data.get('project_id')
-        answers = request.data.get('answers')
-
-        if not project_id or not answers:
-            return Response({
-                'success': False,
-                'message': 'project_id and answers are required.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Determine which user type is submitting
-        submitter_user = None
-        if isinstance(user, User):
-            submitter_user = user
-        elif hasattr(user, 'user'): # Case for custom user models that might wrap the base User
-            submitter_user = user.user
-        
-        if not submitter_user:
-             # This logic needs clarification on how a BA's submission should be recorded,
-             # as FormSubmission is linked to a User, not a Ba.
-             # For now, we assume a BA cannot submit data directly.
-            if isinstance(user, Ba):
-                 return Response({'success': False, 'message': 'BA form submission is not yet supported.'}, status=400)
-            return Response({'success': False, 'message': 'Could not identify a valid user for submission.'}, status=400)
-
-        # Check if the project exists
-        try:
-            project = Project.objects.get(id=project_id)
-        except Project.DoesNotExist:
-            return Response({
-                'success': False,
-                'message': f'Project with ID {project_id} not found.'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-        # Check permissions
-        allowed_projects = []
-        if isinstance(user, UAdmin):
-            agency_ids = user.agencies.values_list('id', flat=True)
-            if project.company not in agency_ids:
-                return Response({'success': False, 'message': 'You do not have permission to submit to this project.'}, status=403)
-        elif isinstance(user, Ba):
-            ba_projects = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
-            if project.id not in ba_projects:
-                return Response({'success': False, 'message': 'You are not assigned to this project.'}, status=403)
-        elif hasattr(user, 'agency') and user.agency:
-            if project.company != user.agency.id:
-                 return Response({'success': False, 'message': 'You do not have permission to submit to this project.'}, status=403)
-        
-        # At this point, the user has permission. Create the submission.
-        from .models import FormSubmission
-        submission_data = {
-            'user': submitter_user,
-            'project': project,
-            'answers': answers
-        }
-        
-        serializer = FormSubmissionSerializer(data=submission_data)
+        serializer = FormSubmissionSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            submission = serializer.save()
-            return Response({
-                'success': True,
-                'message': 'Form submitted successfully.',
-                'data': {'submission_id': submission.id}
-            }, status=status.HTTP_201_CREATED)
+            try:
+                # Check if the user is a 'Ba' and has access to the project
+                user = request.user
+                project_id = serializer.validated_data.get('project').id
+                
+                if isinstance(user, Ba):
+                    if not BaProject.objects.filter(ba_id=user.id, project_id=project_id).exists():
+                        return Response({
+                            'success': False,
+                            'message': 'Access Denied',
+                            'data': {'errors': 'This BA is not assigned to the specified project.'}
+                        }, status=status.HTTP_403_FORBIDDEN)
+                
+                # Check if the user is a 'UAdmin' and has access to the project
+                elif isinstance(user, UAdmin):
+                    admin_agencies = user.agencies.all()
+                    agency_ids = [agency.id for agency in admin_agencies]
+                    if not Project.objects.filter(id=project_id, company__in=agency_ids).exists():
+                        return Response({
+                            'success': False,
+                            'message': 'Access Denied',
+                            'data': {'errors': 'This Admin does not have access to the specified project.'}
+                        }, status=status.HTTP_403_FORBIDDEN)
+
+                # Check if the user is a standard 'User' and has access to the project
+                elif isinstance(user, User):
+                    if not (user.agency and Project.objects.filter(id=project_id, company=user.agency.id).exists()):
+                         return Response({
+                            'success': False,
+                            'message': 'Access Denied',
+                            'data': {'errors': 'This User does not have access to the specified project.'}
+                        }, status=status.HTTP_403_FORBIDDEN)
+
+                submission = serializer.save(user=user)
+                
+                # Prepare the response data, using the serializer's to_representation method
+                response_data = FormSubmissionSerializer(submission, context={'request': request}).data
+                
+                return Response({
+                    'success': True,
+                    'message': 'Form submitted successfully',
+                    'data': response_data
+                }, status=status.HTTP_201_CREATED)
+            
+            except Exception as e:
+                return Response({
+                    'success': False,
+                    'message': 'An error occurred during submission',
+                    'data': {'errors': str(e)}
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         return Response({
             'success': False,
-            'message': 'Invalid data provided.',
-            'data': {'errors': serializer.errors}
+            'message': 'Invalid data provided',
+            'data': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DashboardStatsView(APIView):
     """
     Provides statistics for the dashboard based on the logged-in user's permissions.
-    Returns total BA count and a list of project heads with their project and data counts.
+    Returns total BA count and a list of projects with their data counts.
     """
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        ba_count = 0
-        project_heads_data = []
+        
+        accessible_projects = Project.objects.none()
+        total_ba_count = 0
 
         if isinstance(user, UAdmin):
-            agency_ids = user.agencies.values_list('id', flat=True)
-            
-            # Get all projects for the admin's agencies to calculate total BA count
-            all_projects_for_admin = Project.objects.filter(company__in=agency_ids)
-            project_ids = all_projects_for_admin.values_list('id', flat=True)
-            ba_count = BaProject.objects.filter(project_id__in=project_ids).values('ba_id').distinct().count()
-
-            # Efficiently get counts
-            project_counts_map = {item['company']: item['count'] for item in Project.objects.filter(company__in=agency_ids).values('company').annotate(count=Count('id'))}
-            
-            from .models import FormSubmission
-            data_counts_map = {item['project__company']: item['count'] for item in FormSubmission.objects.filter(project__company__in=agency_ids).values('project__company').annotate(count=Count('id'))}
-
-            project_heads = ProjectHead.objects.filter(company__in=agency_ids)
-            for ph in project_heads:
-                company_id = ph.company
-                project_heads_data.append({
-                    'id': ph.id,
-                    'name': ph.name,
-                    'projects_count': project_counts_map.get(company_id, 0),
-                    'data_entries_count': data_counts_map.get(company_id, 0)
-                })
+            admin_agencies = user.agencies.all()
+            if admin_agencies:
+                agency_ids = [a.id for a in admin_agencies]
+                accessible_projects = Project.objects.filter(company__in=agency_ids)
+                total_ba_count = Ba.objects.filter(company__in=agency_ids).count()
 
         elif isinstance(user, Ba):
-            ba_count = 1
-            if user.company:
-                # Get projects assigned to this BA
-                ba_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
-                projects_for_ba = Project.objects.filter(id__in=ba_project_ids, company=user.company)
+            ba_projects = BaProject.objects.filter(ba_id=user.id)
+            project_ids = [bp.project_id for bp in ba_projects]
+            accessible_projects = Project.objects.filter(id__in=project_ids)
+            total_ba_count = 1 if accessible_projects.exists() else 0
+        
+        elif isinstance(user, User):
+            if hasattr(user, 'agency') and user.agency:
+                accessible_projects = Project.objects.filter(company=user.agency.id)
+                total_ba_count = Ba.objects.filter(company=user.agency.id).count()
+        
+        else:
+             return Response({"error": "Dashboard for this user type is not implemented."}, status=status.HTTP_501_NOT_IMPLEMENTED)
 
-                # Get project heads for the BA's company
-                project_heads = ProjectHead.objects.filter(company=user.company)
-                
-                from .models import FormSubmission
-                for ph in project_heads:
-                    # Filter projects for this head that the BA is assigned to
-                    projects_for_head_and_ba = projects_for_ba.filter(company=ph.company)
-                    
-                    if projects_for_head_and_ba.exists():
-                        data_count = FormSubmission.objects.filter(project__in=projects_for_head_and_ba).count()
-                        project_heads_data.append({
-                            'id': ph.id,
-                            'name': ph.name,
-                            'projects_count': projects_for_head_and_ba.count(),
-                            'data_entries_count': data_count
-                        })
+        # Annotate projects with data count
+        appdata_count_subquery = AppData.objects.filter(
+            project_id=OuterRef('pk')
+        ).values('project_id').annotate(
+            c=Count('id')
+        ).values('c').order_by()
 
-        elif hasattr(user, 'agency') and user.agency:
-            agency_id = user.agency.id
-            
-            # Get all projects for the user's agency to calculate total BA count
-            all_projects_for_user = Project.objects.filter(company=agency_id)
-            project_ids = all_projects_for_user.values_list('id', flat=True)
-            ba_count = BaProject.objects.filter(project_id__in=project_ids).values('ba_id').distinct().count()
+        projects_with_counts = accessible_projects.annotate(
+            data_count=Coalesce(Subquery(appdata_count_subquery, output_field=IntegerField()), 0)
+        )
+        
+        serializer = ProjectWithDataCountSerializer(projects_with_counts, many=True)
 
-            # Get counts for the single agency
-            projects_count = all_projects_for_user.count()
-            from .models import FormSubmission
-            data_entries_count = FormSubmission.objects.filter(project__company=agency_id).count()
+        response_data = {
+            'total_ba_count': total_ba_count,
+            'projects_data': serializer.data
+        }
 
-            project_heads = ProjectHead.objects.filter(company=agency_id)
-            for ph in project_heads:
-                project_heads_data.append({
-                    'id': ph.id,
-                    'name': ph.name,
-                    # Since all projects/data are for the same company, the counts are the same for each head
-                    'projects_count': projects_count,
-                    'data_entries_count': data_entries_count
-                })
-
-        return Response({
-            'success': True,
-            'data': {
-                'ba_count': ba_count,
-                'project_heads': project_heads_data
-            }
-        })
+        return Response(response_data)
 
 ALLOWED_COLLECTION_TABLES = [
     'app_data', 'saff_combined', 'coke_combined', 'airtel_combined',
