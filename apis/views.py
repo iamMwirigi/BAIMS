@@ -2549,3 +2549,77 @@ class DashboardStatsView(APIView):
             'message': 'Dashboard statistics retrieved successfully.',
             'data': data
         })
+
+ALLOWED_COLLECTION_TABLES = [
+    'app_data', 'saff_combined', 'coke_combined', 'airtel_combined',
+    'baims_combined', 'kspca_combined', 'redbull_outlet', 'total_kenya',
+    'coop', 'coop2'
+]
+
+class CollectionView(APIView):
+    """
+    A view to retrieve data from a specific collection (table).
+    The user must have access to the collection via their agency's holding_table.
+    Returns data as an array of arrays.
+    """
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
+
+    def get(self, request, collection_name, *args, **kwargs):
+        # Validate that the collection name is a recognized table to prevent misuse
+        if collection_name not in ALLOWED_COLLECTION_TABLES:
+            return Response({
+                "success": False,
+                "message": f"Invalid or disallowed collection: {collection_name}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        allowed_tables = []
+
+        # Determine which tables the user is allowed to see based on their role and agency
+        if isinstance(user, UAdmin):
+            allowed_tables = list(user.agencies.values_list('holding_table', flat=True).distinct())
+        elif isinstance(user, Ba):
+            if user.company:
+                try:
+                    # The BA's company is an agency ID
+                    agency = Agency.objects.get(id=user.company)
+                    if agency.holding_table:
+                        allowed_tables = [agency.holding_table]
+                except Agency.DoesNotExist:
+                    allowed_tables = []
+        elif hasattr(user, 'agency') and user.agency:
+            if user.agency.holding_table:
+                allowed_tables = [user.agency.holding_table]
+
+        # Check if the requested collection is in the user's list of allowed tables
+        if collection_name not in allowed_tables:
+            return Response({
+                "success": False,
+                "message": "You do not have permission to access this collection."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Safely fetch data using a raw query since the table name is dynamic but validated
+        try:
+            with connection.cursor() as cursor:
+                # The table name is validated against a safelist, so this is safe.
+                cursor.execute(f"SELECT * FROM {collection_name}")
+                
+                headers = [col[0] for col in cursor.description]
+                rows = cursor.fetchall()
+
+            # Convert the list of tuples from the DB into a list of lists for the JSON response
+            data_as_lists = [list(row) for row in rows]
+
+            return Response({
+                "success": True,
+                "collection": collection_name,
+                "headers": headers,
+                "data": data_as_lists
+            })
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": f"An error occurred while fetching data: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

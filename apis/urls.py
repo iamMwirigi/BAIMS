@@ -10,7 +10,7 @@ from .views import (
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
     AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView,
     UnifiedFormView, UnifiedFormFieldView, UnifiedFormSectionView, ProfileView, SubmitFormView,
-    ProjectFormFieldsView, DashboardStatsView
+    ProjectFormFieldsView, DashboardStatsView, CollectionView
 )
 from .rich_views import BaRichDataView, BaDataWithRecordsView
 from .data_views import WideDataFilterView, ProjectDataView
@@ -48,29 +48,31 @@ router.register(r'u-admin', UAdminViewSet, basename='u-admin')
 
 # The API URLs are now determined automatically by the router
 urlpatterns = [
-    path('login/', LoginView.as_view(), name='login'),
+    path('login/', LoginView.as_view(), name='user-login'),
     path('admin-login/', AdminLoginView.as_view(), name='admin-login'),
     path('ba-login/', BaLoginView.as_view(), name='ba-login'),
-    path('profile/', ProfileView.as_view(), name='profile'),
+    path('profile/', ProfileView.as_view(), name='user-profile'),
     path('submit-form/', SubmitFormView.as_view(), name='submit-form'),
     
     # Rich API endpoints
-    path('rich/ba/<int:ba_id>/', BaRichDataView.as_view(), name='ba-rich-data'),
-    path('rich/ba/', BaRichDataView.as_view(), name='ba-rich-data-all'),
-    path('rich/ba/<int:ba_id>/with-data/', BaDataWithRecordsView.as_view(), name='ba-data-with-records'),
+    path('rich-data/ba-rich-data/', BaRichDataView.as_view(), name='ba-rich-data'),
+    path('rich-data/ba-data-with-records/<int:ba_id>/', BaDataWithRecordsView.as_view(), name='ba-data-with-records'),
     
     # Data filtering endpoints
-    path('data/filter/', WideDataFilterView.as_view(), name='wide-data-filter'),
-    path('data/project/<int:project_id>/', ProjectDataView.as_view(), name='project-data'),
+    path('data/wide-filter/', WideDataFilterView.as_view(), name='wide-data-filter'),
+    path('data/project-data/<int:project_id>/', ProjectDataView.as_view(), name='project-data'),
     
-    path('project-heads-with-forms/', ProjectHeadWithProjectsView.as_view(), name='project-heads-with-forms'),
-    path('project-heads-with-forms/<int:pk>/', ProjectHeadWithProjectsView.as_view(), name='project-head-with-forms-detail'),
-    path('project-form-fields/<int:id>/', UnifiedFormFieldView.as_view(), name='unified-form-field-view'),
-    
-    path('form-sections/<int:id>/', UnifiedFormSectionView.as_view(), name='unified-form-section-view'),
-    path('forms/<int:id>/', UnifiedFormView.as_view(), name='unified-form-view'),
+    path('project-heads-with-projects/', ProjectHeadWithProjectsView.as_view(), name='project-head-with-projects-list'),
+    path('project-heads-with-projects/<int:pk>/', ProjectHeadWithProjectsView.as_view(), name='project-head-with-projects-detail'),
+    path('forms-unified/<int:id>/', UnifiedFormView.as_view(), name='unified-form-detail'),
+    path('form-fields-unified/<int:id>/', UnifiedFormFieldView.as_view(), name='unified-form-field-detail'),
+    path('form-sections-unified/<int:id>/', UnifiedFormSectionView.as_view(), name='unified-form-section-detail'),
+    path('project-form-fields/', ProjectFormFieldsView.as_view(), name='project-form-fields-list'),
+    path('project-form-fields/<int:project_id>/', ProjectFormFieldsView.as_view(), name='project-form-fields-detail'),
     
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+    
+    path('collection/<str:collection_name>/', CollectionView.as_view(), name='collection-data'),
     
     path('', include(router.urls)),
 ]
