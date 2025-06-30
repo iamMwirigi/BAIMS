@@ -2441,7 +2441,7 @@ class SubmitFormView(APIView):
         if serializer.is_valid():
             try:
                 # Check if the user is a 'Ba' and has access to the project
-        user = request.user
+                user = request.user
                 project_id = serializer.validated_data.get('project').id
                 
                 if isinstance(user, Ba):
@@ -2484,8 +2484,8 @@ class SubmitFormView(APIView):
                 }, status=status.HTTP_201_CREATED)
             
             except Exception as e:
-            return Response({
-                'success': False,
+                return Response({
+                    'success': False,
                         'message': 'An error occurred during submission',
                         'data': {'errors': str(e)}
                     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
