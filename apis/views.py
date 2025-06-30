@@ -2347,7 +2347,7 @@ class UnifiedFormView(APIView):
                 assigned_project_ids = BaProject.objects.filter(ba_id=request.user.id).values_list('project_id', flat=True)
                 projects = Project.objects.filter(company=project_head.company, id__in=assigned_project_ids)
             else:
-            projects = Project.objects.filter(company=project_head.company)
+                projects = Project.objects.filter(company=project_head.company)
             serializer = ProjectListSerializer(projects, many=True)
             return Response({
                 'success': True,

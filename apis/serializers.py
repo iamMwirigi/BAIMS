@@ -143,13 +143,46 @@ class ProjectHeadListSerializer(serializers.ModelSerializer):
 class ProjectHeadWithProjectCountSerializer(serializers.ModelSerializer):
     """Serializer for listing project heads with a count of their projects."""
     project_count = serializers.SerializerMethodField()
+    total_data_entries = serializers.SerializerMethodField()
 
     class Meta:
         model = ProjectHead
-        fields = ['id', 'name', 'company', 'start_date', 'end_date', 'aka_name', 'project_count']
+        fields = ['id', 'name', 'company', 'start_date', 'end_date', 'aka_name', 'project_count', 'total_data_entries']
 
     def get_project_count(self, obj):
         return Project.objects.filter(company=obj.company).count()
+
+    def get_total_data_entries(self, obj):
+        projects = Project.objects.filter(company=obj.company)
+        total_entries = 0
+        
+        model_map = {
+            'airtel_combined': AirtelCombined,
+            'coke_combined': CokeCombined,
+            'baims_combined': BaimsCombined,
+            'kspca_combined': KspcaCombined,
+            'saff_combined': SaffCombined,
+            'total_kenya': TotalKenya,
+            'app_data': AppData,
+        }
+
+        for project in projects:
+            table_name = project.top_table
+            if not table_name:
+                continue
+
+            ModelClass = model_map.get(table_name)
+            if not ModelClass:
+                continue
+            
+            # Check for a field linking back to the project.
+            # Common names are 'project' or 'project_id'.
+            if hasattr(ModelClass, 'project'):
+                total_entries += ModelClass.objects.filter(project=project.id).count()
+            elif hasattr(ModelClass, 'project_id'):
+                total_entries += ModelClass.objects.filter(project_id=project.id).count()
+        
+        return total_entries
 
 
 # Branch Serializers
