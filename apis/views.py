@@ -2532,8 +2532,8 @@ class DashboardStatsView(APIView):
 
         # Annotate projects with data count
         appdata_count_subquery = AppData.objects.filter(
-            project_id=OuterRef('pk')
-        ).values('project_id').annotate(
+            project=OuterRef('pk')
+        ).values('project').annotate(
             c=Count('id')
         ).values('c').order_by()
 
