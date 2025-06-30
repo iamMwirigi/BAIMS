@@ -45,7 +45,7 @@ from .serializers import (
     InputOptionsSerializer, InputOptionsListSerializer,
     UAdminSerializer,
     FormSubmissionSerializer,
-    ProjectWithDataCountSerializer
+    ProjectWithDataCountSerializer, ProjectHeadWithProjectCountSerializer
 )
 from django.db import models
 from django.contrib.auth.hashers import check_password
