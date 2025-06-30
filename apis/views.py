@@ -2346,7 +2346,7 @@ class UnifiedFormView(APIView):
                 assigned_project_ids = BaProject.objects.filter(ba_id=request.user.id).values_list('project_id', flat=True)
                 projects = Project.objects.filter(company=project_head.company, id__in=assigned_project_ids)
             else:
-                projects = Project.objects.filter(company=project_head.company)
+            projects = Project.objects.filter(company=project_head.company)
             serializer = ProjectListSerializer(projects, many=True)
             return Response({
                 'success': True,
@@ -2483,8 +2483,8 @@ class SubmitFormView(APIView):
                 }, status=status.HTTP_201_CREATED)
             
             except Exception as e:
-                return Response({
-                    'success': False,
+            return Response({
+                'success': False,
                         'message': 'An error occurred during submission',
                         'data': {'errors': str(e)}
                     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -2530,38 +2530,18 @@ class DashboardStatsView(APIView):
                 accessible_project_heads = ProjectHead.objects.filter(company=user.agency.id)
                 total_ba_count = Ba.objects.filter(company=user.agency.id).count()
 
-        else:
-            return Response({"error": "Dashboard for this user type is not implemented."}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        # Now, serialize the accessible project heads
+        project_heads_data = ProjectHeadWithProjectCountSerializer(accessible_project_heads, many=True).data
 
-        # Prepare data with project and data submission counts
-        project_heads_data = []
-        for head in accessible_project_heads:
-            # Get projects associated with this project head
-            projects_for_head = Project.objects.filter(company=head.company)
-            
-            # For a BA user, we must filter by projects they are assigned to
-            if isinstance(user, Ba):
-                ba_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
-                projects_for_head = projects_for_head.filter(id__in=ba_project_ids)
-
-            projects_count = projects_for_head.count()
-            
-            # Count form submissions for these projects
-            data_entries_count = FormSubmission.objects.filter(project__in=projects_for_head).count()
-
-            project_heads_data.append({
-                'id': head.id,
-                'name': head.name,
-                'projects_count': projects_count,
-                'data_entries_count': data_entries_count
-            })
-
-        response_data = {
-            'total_ba_count': total_ba_count,
-            'project_heads': project_heads_data
-        }
-
-        return Response(response_data)
+        return Response({
+            'success': True,
+            'message': 'Dashboard statistics retrieved successfully.',
+            'data': {
+                'total_project_heads': accessible_project_heads.count(),
+                'total_bas': total_ba_count,
+                'project_heads': project_heads_data
+            }
+        })
 
 ALLOWED_COLLECTION_TABLES = [
     'app_data', 'saff_combined', 'coke_combined', 'airtel_combined',

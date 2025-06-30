@@ -140,6 +140,18 @@ class ProjectHeadListSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'company', 'start_date', 'end_date', 'aka_name']
 
 
+class ProjectHeadWithProjectCountSerializer(serializers.ModelSerializer):
+    """Serializer for listing project heads with a count of their projects."""
+    project_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectHead
+        fields = ['id', 'name', 'company', 'start_date', 'end_date', 'aka_name', 'project_count']
+
+    def get_project_count(self, obj):
+        return Project.objects.filter(company=obj.company).count()
+
+
 # Branch Serializers
 class BranchSerializer(serializers.ModelSerializer):
     """Serializer for Branch model"""
