@@ -2434,120 +2434,173 @@ class SubmitFormView(APIView):
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
 
     def post(self, request):
+        """
+        Submit form data for a given project.
+        The user submitting must have access to the project.
+        The data should be a JSON object with form field IDs as keys.
+        """
         user = request.user
-        data = request.data
-        project_id = data.get('project_id')
-        answers = data.get('answers')
-        if not project_id or not answers or not isinstance(answers, dict):
-            return Response({'success': False, 'message': 'project_id and answers (dict) are required.'}, status=400)
+        project_id = request.data.get('project_id')
+        answers = request.data.get('answers')
 
-        # Get project
+        if not project_id or not answers:
+            return Response({
+                'success': False,
+                'message': 'project_id and answers are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Determine which user type is submitting
+        submitter_user = None
+        if isinstance(user, User):
+            submitter_user = user
+        elif hasattr(user, 'user'): # Case for custom user models that might wrap the base User
+            submitter_user = user.user
+        
+        if not submitter_user:
+             # This logic needs clarification on how a BA's submission should be recorded,
+             # as FormSubmission is linked to a User, not a Ba.
+             # For now, we assume a BA cannot submit data directly.
+            if isinstance(user, Ba):
+                 return Response({'success': False, 'message': 'BA form submission is not yet supported.'}, status=400)
+            return Response({'success': False, 'message': 'Could not identify a valid user for submission.'}, status=400)
+
+        # Check if the project exists
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
-            return Response({'success': False, 'message': f'Project with id {project_id} not found.'}, status=404)
-
-        # Get agency
-        try:
-            agency = Agency.objects.get(id=project.company)
-        except Agency.DoesNotExist:
-            return Response({'success': False, 'message': f'Agency with id {project.company} not found.'}, status=404)
-
-        holding_table = agency.holding_table
-        if not holding_table:
-            return Response({'success': False, 'message': 'No holding_table defined for this agency.'}, status=400)
-
-        # Check if holding_table exists in the DB
-        with connection.cursor() as cursor:
-            cursor.execute("SHOW TABLES;")
-            existing_tables = set(row[0] for row in cursor.fetchall())
-        if holding_table not in existing_tables:
             return Response({
                 'success': False,
-                'message': f"Table '{holding_table}' does not exist in the database.",
-                'valid_tables': list(existing_tables)
-            }, status=400)
+                'message': f'Project with ID {project_id} not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
 
-        # Validate that all answer keys are valid columns in the holding_table
-        with connection.cursor() as cursor:
-            cursor.execute(f"DESCRIBE `{holding_table}`;")
-            columns = [row[0] for row in cursor.fetchall()]
-        invalid_fields = [k for k in answers.keys() if k not in columns]
-        if invalid_fields:
-            return Response({'success': False, 'message': 'Invalid fields in answers.', 'invalid_fields': invalid_fields, 'valid_fields': columns}, status=400)
+        # Check permissions
+        allowed_projects = []
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            if project.company not in agency_ids:
+                return Response({'success': False, 'message': 'You do not have permission to submit to this project.'}, status=403)
+        elif isinstance(user, Ba):
+            ba_projects = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            if project.id not in ba_projects:
+                return Response({'success': False, 'message': 'You are not assigned to this project.'}, status=403)
+        elif hasattr(user, 'agency') and user.agency:
+            if project.company != user.agency.id:
+                 return Response({'success': False, 'message': 'You do not have permission to submit to this project.'}, status=403)
+        
+        # At this point, the user has permission. Create the submission.
+        from .models import FormSubmission
+        submission_data = {
+            'user': submitter_user,
+            'project': project,
+            'answers': answers
+        }
+        
+        serializer = FormSubmissionSerializer(data=submission_data)
+        if serializer.is_valid():
+            submission = serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Form submitted successfully.',
+                'data': {'submission_id': submission.id}
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            'success': False,
+            'message': 'Invalid data provided.',
+            'data': {'errors': serializer.errors}
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Prepare insert
-        insert_fields = list(answers.keys())
-        insert_values = [answers[k] for k in insert_fields]
-        # Add project, ba_id, t_date if they exist in the table
-        extra_fields = []
-        extra_values = []
-        if 'project' in columns:
-            extra_fields.append('project')
-            extra_values.append(project_id)
-        if 'ba_id' in columns and hasattr(user, 'id'):
-            extra_fields.append('ba_id')
-            extra_values.append(user.id)
-        if 't_date' in columns:
-            from datetime import date
-            extra_fields.append('t_date')
-            extra_values.append(date.today())
-        all_fields = insert_fields + extra_fields
-        all_values = insert_values + extra_values
-        placeholders = ','.join(['%s'] * len(all_fields))
-        columns_sql = ','.join(f'`{f}`' for f in all_fields)
-        sql = f"INSERT INTO `{holding_table}` ({columns_sql}) VALUES ({placeholders})"
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(sql, all_values)
-        except Exception as e:
-            return Response({'success': False, 'message': f'Failed to insert data: {str(e)}'}, status=500)
-        return Response({'success': True, 'message': 'Form submitted successfully.'}, status=201)
 
 class DashboardStatsView(APIView):
     """
     Provides statistics for the dashboard based on the logged-in user's permissions.
+    Returns total BA count and a list of project heads with their project and data counts.
     """
     authentication_classes = [TokenAuthentication, AdminTokenAuthentication, BaTokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        total_projects_count = 0
-        total_bas = 0
-        projects_with_data = []
+        ba_count = 0
+        project_heads_data = []
 
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
-            projects = Project.objects.filter(company__in=agency_ids)
-            total_projects_count = projects.count()
-            total_bas = Ba.objects.filter(company__in=agency_ids).count()
-            projects_with_data = ProjectWithDataCountSerializer(projects, many=True).data
+            
+            # Get all projects for the admin's agencies to calculate total BA count
+            all_projects_for_admin = Project.objects.filter(company__in=agency_ids)
+            project_ids = all_projects_for_admin.values_list('id', flat=True)
+            ba_count = BaProject.objects.filter(project_id__in=project_ids).values('ba_id').distinct().count()
+
+            # Efficiently get counts
+            project_counts_map = {item['company']: item['count'] for item in Project.objects.filter(company__in=agency_ids).values('company').annotate(count=Count('id'))}
+            
+            from .models import FormSubmission
+            data_counts_map = {item['project__company']: item['count'] for item in FormSubmission.objects.filter(project__company__in=agency_ids).values('project__company').annotate(count=Count('id'))}
+
+            project_heads = ProjectHead.objects.filter(company__in=agency_ids)
+            for ph in project_heads:
+                company_id = ph.company
+                project_heads_data.append({
+                    'id': ph.id,
+                    'name': ph.name,
+                    'projects_count': project_counts_map.get(company_id, 0),
+                    'data_entries_count': data_counts_map.get(company_id, 0)
+                })
 
         elif isinstance(user, Ba):
-            project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
-            projects = Project.objects.filter(id__in=project_ids)
-            total_projects_count = projects.count()
+            ba_count = 1
             if user.company:
-                total_bas = Ba.objects.filter(company=user.company).count()
-            projects_with_data = ProjectWithDataCountSerializer(projects, many=True).data
+                # Get projects assigned to this BA
+                ba_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+                projects_for_ba = Project.objects.filter(id__in=ba_project_ids, company=user.company)
 
-        elif hasattr(user, 'agency') and user.agency: # Regular User
-            projects = Project.objects.filter(company=user.agency.id)
-            total_projects_count = projects.count()
-            total_bas = Ba.objects.filter(company=user.agency.id).count()
-            projects_with_data = ProjectWithDataCountSerializer(projects, many=True).data
+                # Get project heads for the BA's company
+                project_heads = ProjectHead.objects.filter(company=user.company)
+                
+                from .models import FormSubmission
+                for ph in project_heads:
+                    # Filter projects for this head that the BA is assigned to
+                    projects_for_head_and_ba = projects_for_ba.filter(company=ph.company)
+                    
+                    if projects_for_head_and_ba.exists():
+                        data_count = FormSubmission.objects.filter(project__in=projects_for_head_and_ba).count()
+                        project_heads_data.append({
+                            'id': ph.id,
+                            'name': ph.name,
+                            'projects_count': projects_for_head_and_ba.count(),
+                            'data_entries_count': data_count
+                        })
 
-        data = {
-            'total_projects': total_projects_count,
-            'total_bas': total_bas,
-            'projects': projects_with_data,
-        }
+        elif hasattr(user, 'agency') and user.agency:
+            agency_id = user.agency.id
+            
+            # Get all projects for the user's agency to calculate total BA count
+            all_projects_for_user = Project.objects.filter(company=agency_id)
+            project_ids = all_projects_for_user.values_list('id', flat=True)
+            ba_count = BaProject.objects.filter(project_id__in=project_ids).values('ba_id').distinct().count()
+
+            # Get counts for the single agency
+            projects_count = all_projects_for_user.count()
+            from .models import FormSubmission
+            data_entries_count = FormSubmission.objects.filter(project__company=agency_id).count()
+
+            project_heads = ProjectHead.objects.filter(company=agency_id)
+            for ph in project_heads:
+                project_heads_data.append({
+                    'id': ph.id,
+                    'name': ph.name,
+                    # Since all projects/data are for the same company, the counts are the same for each head
+                    'projects_count': projects_count,
+                    'data_entries_count': data_entries_count
+                })
 
         return Response({
             'success': True,
-            'message': 'Dashboard statistics retrieved successfully.',
-            'data': data
+            'data': {
+                'ba_count': ba_count,
+                'project_heads': project_heads_data
+            }
         })
 
 ALLOWED_COLLECTION_TABLES = [
