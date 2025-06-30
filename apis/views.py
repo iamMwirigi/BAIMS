@@ -54,8 +54,9 @@ from .authentication import TokenAuthentication, AdminTokenAuthentication, BaTok
 from datetime import date, timedelta
 from apis.nested_serializers import ProjectAssocNestedSerializer
 from django.db import connection
-from django.db.models import Count, Q, OuterRef, Subquery, IntegerField
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Q
+
+
 
 # Custom exception handler for better error messages
 def custom_exception_handler(exc, context):
