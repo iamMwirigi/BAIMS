@@ -2346,7 +2346,7 @@ class UnifiedFormView(APIView):
                 assigned_project_ids = BaProject.objects.filter(ba_id=request.user.id).values_list('project_id', flat=True)
                 projects = Project.objects.filter(company=project_head.company, id__in=assigned_project_ids)
             else:
-            projects = Project.objects.filter(company=project_head.company)
+                projects = Project.objects.filter(company=project_head.company)
             serializer = ProjectListSerializer(projects, many=True)
             return Response({
                 'success': True,
@@ -2483,11 +2483,11 @@ class SubmitFormView(APIView):
                 }, status=status.HTTP_201_CREATED)
             
             except Exception as e:
-            return Response({
-                'success': False,
-                    'message': 'An error occurred during submission',
-                    'data': {'errors': str(e)}
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({
+                    'success': False,
+                        'message': 'An error occurred during submission',
+                        'data': {'errors': str(e)}
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         return Response({
             'success': False,
