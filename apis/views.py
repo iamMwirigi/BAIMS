@@ -1681,6 +1681,7 @@ class FormSectionViewSet(BaseViewSet):
         # Treat <pk> as project_head id and return all forms for all projects under that project head
         project_head_id = kwargs.get('pk')
         user = self.request.user
+
         # Get all projects for this project head that the user has access to
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
@@ -1693,7 +1694,14 @@ class FormSectionViewSet(BaseViewSet):
         else:
             allowed_projects = Project.objects.none()
 
-        project_ids = allowed_projects.values_list('id', flat=True)
+        project_ids = list(allowed_projects.values_list('id', flat=True))
+        if not project_ids:
+            return Response({
+                'success': True,
+                'message': f'No projects found for project head {project_head_id} or you do not have access.',
+                'data': {'items': [], 'count': 0}
+            })
+
         forms = FormSection.objects.filter(project__in=project_ids)
         serializer = self.get_serializer(forms, many=True)
         return Response({
