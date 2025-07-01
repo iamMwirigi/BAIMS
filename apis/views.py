@@ -1678,7 +1678,7 @@ class FormSectionViewSet(BaseViewSet):
         return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs):
-        # Treat <pk> as project_head id and return all forms for all projects under that project head
+        # Treat <pk> as project_head id and return all projects (forms) under that project head
         project_head_id = kwargs.get('pk')
         user = self.request.user
 
@@ -1694,22 +1694,20 @@ class FormSectionViewSet(BaseViewSet):
         else:
             allowed_projects = Project.objects.none()
 
-        project_ids = list(allowed_projects.values_list('id', flat=True))
-        if not project_ids:
+        if not allowed_projects.exists():
             return Response({
                 'success': True,
-                'message': f'No projects found for project head {project_head_id} or you do not have access.',
+                'message': f'No forms (projects) found for project head {project_head_id} or you do not have access.',
                 'data': {'items': [], 'count': 0}
             })
 
-        forms = FormSection.objects.filter(project__in=project_ids)
-        serializer = self.get_serializer(forms, many=True)
+        serializer = ProjectListSerializer(allowed_projects, many=True)
         return Response({
             'success': True,
-            'message': f'Successfully retrieved {forms.count()} forms for project head {project_head_id}',
+            'message': f'Successfully retrieved {allowed_projects.count()} forms (projects) for project head {project_head_id}',
             'data': {
                 'items': serializer.data,
-                'count': forms.count()
+                'count': allowed_projects.count()
             }
         })
 
