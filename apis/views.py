@@ -1677,6 +1677,48 @@ class FormSectionViewSet(BaseViewSet):
         
         return super().list(request, *args, **kwargs)
 
+    def retrieve(self, request, *args, **kwargs):
+        # Custom: treat <pk> as project id and return all forms for that project
+        project_id = kwargs.get('pk')
+        user = self.request.user
+        # Get allowed project IDs for this user
+        if isinstance(user, UAdmin):
+            agency_ids = user.agencies.values_list('id', flat=True)
+            allowed_project_ids = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
+        elif isinstance(user, Ba):
+            allowed_project_ids = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
+        elif hasattr(user, 'agency') and user.agency:
+            allowed_project_ids = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
+        else:
+            allowed_project_ids = []
+
+        try:
+            project_id = int(project_id)
+        except (TypeError, ValueError):
+            return Response({
+                'success': False,
+                'message': 'Invalid project id',
+                'data': {'errors': 'Invalid project id'}
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if project_id not in allowed_project_ids:
+            return Response({
+                'success': True,
+                'message': 'No forms found for this project',
+                'data': {'items': [], 'count': 0}
+            })
+
+        forms = FormSection.objects.filter(project=project_id)
+        serializer = self.get_serializer(forms, many=True)
+        return Response({
+            'success': True,
+            'message': f'Successfully retrieved {forms.count()} items',
+            'data': {
+                'items': serializer.data,
+                'count': forms.count()
+            }
+        })
+
 class FormSubSectionViewSet(BaseViewSet):
     """ViewSet for FormSubSection model"""
     queryset = FormSubSection.objects.all()
