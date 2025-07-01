@@ -1625,23 +1625,57 @@ class FormSectionViewSet(BaseViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        # Get allowed project IDs for this user
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
-            project_ids = Project.objects.filter(company__in=agency_ids).values_list('id', flat=True)
-            return FormSection.objects.filter(project__in=project_ids)
-        
-        allowed_project_ids = []
-        if isinstance(user, Ba):
-            allowed_project_ids = BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True)
+            allowed_project_ids = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
+        elif isinstance(user, Ba):
+            allowed_project_ids = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
         elif hasattr(user, 'agency') and user.agency:
-            allowed_project_ids = Project.objects.filter(company=user.agency.id).values_list('id', flat=True)
+            allowed_project_ids = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
+        else:
+            allowed_project_ids = []
 
-        return FormSection.objects.filter(project__in=allowed_project_ids)
+        # Check for ?project=<id> in query params
+        project_id = self.request.query_params.get('project')
+        queryset = FormSection.objects.filter(project__in=allowed_project_ids)
+        if project_id:
+            try:
+                project_id = int(project_id)
+            except ValueError:
+                return queryset.none()  # Invalid project id
+            if project_id in allowed_project_ids:
+                queryset = queryset.filter(project=project_id)
+            else:
+                return queryset.none()  # Not allowed to see this project
+        return queryset
 
     def get_serializer_class(self):
         if self.action == 'list':
             return FormSectionListSerializer
         return FormSectionSerializer
+
+    def list(self, request, *args, **kwargs):
+        # Support project_id in body for GET requests (e.g., via Postman)
+        project_id = request.query_params.get('project')
+        if not project_id and request.method == 'GET':
+            # Try to get from body (works in DRF test client and some clients like Postman)
+            try:
+                body_data = request.data if hasattr(request, 'data') else None
+                if body_data and isinstance(body_data, dict):
+                    project_id = body_data.get('project_id')
+            except Exception:
+                project_id = None
+        
+        # Patch self.request.query_params for get_queryset to see the project_id
+        if project_id:
+            # Use a mutable copy of query_params
+            mutable_query_params = request.query_params.copy()
+            mutable_query_params['project'] = str(project_id)
+            request._request.GET = mutable_query_params
+            self.request.query_params = mutable_query_params
+        
+        return super().list(request, *args, **kwargs)
 
 class FormSubSectionViewSet(BaseViewSet):
     """ViewSet for FormSubSection model"""
