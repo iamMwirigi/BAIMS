@@ -1225,13 +1225,20 @@ class BaViewSet(BaseViewSet):
 
         ba_projects = []
         for project in projects:
-            ba_projects.append(
-                BaProject(ba_id=ba.id, project_id=project.id, start_date=start_date, end_date=end_date)
-            )
+            if project.project_head_id:  # Only assign if the project has a project_head
+                ba_projects.append(
+                    BaProject(ba_id=ba.id, project_id=project.project_head_id, start_date=start_date, end_date=end_date)
+                )
         
-        if ba_projects:
-            BaProject.objects.bulk_create(ba_projects)
-            
+        if not ba_projects:
+            return Response({
+                'success': False,
+                'message': 'No valid projects with project_head found for this company.',
+                'data': BaListSerializer(ba).data
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        BaProject.objects.bulk_create(ba_projects)
+        
         return Response({
             'success': True,
             'message': f'BA created and assigned to {len(ba_projects)} projects.',
