@@ -45,6 +45,7 @@ router.register(r'data/form-sub-section', FormSubSectionViewSet, basename='forms
 router.register(r'data/input-group', InputGroupViewSet, basename='inputgroup')
 router.register(r'data/input-options', InputOptionsViewSet, basename='inputoptions')
 router.register(r'u-admin', UAdminViewSet, basename='u-admin')
+router.register(r'form-sections', FormSectionViewSet, basename='formsection')
 
 # The API URLs are now determined automatically by the router
 urlpatterns = [
