@@ -83,7 +83,10 @@ class ProjectSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Project
-        fields = ['id', 'name', 'client', 'top_table', 'rank', 'combined', 'status', 'location_status', 'company', 'image_required']
+        fields = [
+            'id', 'name', 'client', 'top_table', 'rank', 'combined', 'status',
+            'location_status', 'company', 'image_required', 'project_head'
+        ]
         extra_kwargs = {
             'combined': {'default': 1},
             'status': {'default': 1},
@@ -107,7 +110,10 @@ class ProjectListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Project
-        fields = ['id', 'name', 'client', 'top_table', 'rank', 'combined', 'status', 'location_status', 'company', 'image_required']
+        fields = [
+            'id', 'name', 'client', 'top_table', 'rank', 'combined', 'status',
+            'location_status', 'company', 'image_required', 'project_head'
+        ]
 
 
 # Project Head Serializers

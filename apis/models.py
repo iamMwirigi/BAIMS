@@ -54,6 +54,7 @@ class Project(models.Model):
     location_status = models.CharField(max_length=64, default='off')
     company = models.IntegerField()
     image_required = models.CharField(max_length=64, default='NO')
+    project_head = models.ForeignKey('ProjectHead', null=True, blank=True, on_delete=models.SET_NULL, related_name='projects')
     
     class Meta:
         db_table = 'project'
