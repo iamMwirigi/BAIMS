@@ -10,7 +10,7 @@ from .views import (
     FormSubSectionViewSet, InputGroupViewSet, InputOptionsViewSet, LoginView,
     AdminLoginView, UAdminViewSet, BaLoginView, ProjectHeadWithProjectsView,
     UnifiedFormView, UnifiedFormFieldView, UnifiedFormSectionView, ProfileView, SubmitFormView,
-    ProjectFormFieldsView, DashboardStatsView, CollectionView
+    ProjectFormFieldsView, DashboardStatsView, CollectionView, FormSectionViewSet
 )
 from .rich_views import BaRichDataView, BaDataWithRecordsView
 from .data_views import WideDataFilterView, ProjectDataView
@@ -20,7 +20,7 @@ router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'agencies', AgencyViewSet, basename='agency')
 router.register(r'projects', ProjectViewSet, basename='project')
-router.register(r'forms', ProjectViewSet, basename='forms')
+router.register(r'forms', FormSectionViewSet, basename='forms')
 router.register(r'project-heads', ProjectHeadViewSet, basename='projecthead')
 router.register(r'branches', BranchViewSet, basename='branch')
 router.register(r'outlets', OutletViewSet, basename='outlet')
