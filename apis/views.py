@@ -1678,38 +1678,32 @@ class FormSectionViewSet(BaseViewSet):
         return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs):
-        # Treat <pk> as project_head id and return all projects (forms) under that project head
-        project_head_id = kwargs.get('pk')
+        # Treat <pk> as project (form) id and return all form sections for that project
+        project_id = kwargs.get('pk')
         user = self.request.user
 
-        # Get all projects for this project head that the user has access to
+        # Get allowed project IDs for this user
         if isinstance(user, UAdmin):
             agency_ids = user.agencies.values_list('id', flat=True)
-            allowed_projects = Project.objects.filter(company__in=agency_ids, project_head=project_head_id)
+            allowed_project_ids = list(Project.objects.filter(company__in=agency_ids).values_list('id', flat=True))
         elif isinstance(user, Ba):
             allowed_project_ids = list(BaProject.objects.filter(ba_id=user.id).values_list('project_id', flat=True))
-            allowed_projects = Project.objects.filter(id__in=allowed_project_ids, project_head=project_head_id)
         elif hasattr(user, 'agency') and user.agency:
-            allowed_projects = Project.objects.filter(company=user.agency.id, project_head=project_head_id)
+            allowed_project_ids = list(Project.objects.filter(company=user.agency.id).values_list('id', flat=True))
         else:
-            allowed_projects = Project.objects.none()
+            allowed_project_ids = []
 
-        if not allowed_projects.exists():
-            return Response({
-                'success': True,
-                'message': f'No forms (projects) found for project head {project_head_id} or you do not have access.',
-                'data': {'items': [], 'count': 0}
-            })
+        try:
+            project_id = int(project_id)
+        except (TypeError, ValueError):
+            return Response({'success': False, 'message': 'Invalid project id.'}, status=400)
 
-        serializer = ProjectListSerializer(allowed_projects, many=True)
-        return Response({
-            'success': True,
-            'message': f'Successfully retrieved {allowed_projects.count()} forms (projects) for project head {project_head_id}',
-            'data': {
-                'items': serializer.data,
-                'count': allowed_projects.count()
-            }
-        })
+        if project_id not in allowed_project_ids:
+            return Response({'success': False, 'message': 'You do not have access to this project.'}, status=403)
+
+        form_sections = FormSection.objects.filter(project=project_id).order_by('rank')
+        serializer = FormSectionListSerializer(form_sections, many=True)
+        return Response({'success': True, 'form_sections': serializer.data, 'count': form_sections.count()})
 
 class FormSubSectionViewSet(BaseViewSet):
     """ViewSet for FormSubSection model"""
